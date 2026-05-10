@@ -2,9 +2,12 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from api.routes.ingestion import router as ingestion_router
+from api.routes.auth import router as auth_router
+from api.routes.incidents import router as incidents_router
 
-app = FastAPI(title="AI SOC Platform")
-
+app = FastAPI(
+    title="AI SOC Platform"
+)
 
 app.add_middleware(
     CORSMiddleware,
@@ -14,12 +17,14 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-
 app.include_router(ingestion_router)
+app.include_router(auth_router)
+app.include_router(incidents_router)
 
 
 @app.get("/")
 def root():
+
     return {
         "message": "AI SOC Platform Running"
     }
@@ -27,6 +32,7 @@ def root():
 
 @app.get("/health")
 def health():
+
     return {
         "status": "healthy"
     }
