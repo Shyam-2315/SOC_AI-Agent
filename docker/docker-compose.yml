@@ -1,0 +1,28 @@
+version: '3.9'
+
+services:
+
+  mongodb:
+    image: mongo:7
+    container_name: soc-mongodb
+    restart: always
+    ports:
+      - "27017:27017"
+
+  redis:
+    image: redis:7
+    container_name: soc-redis
+    restart: always
+    ports:
+      - "6379:6379"
+
+  postgres:
+    image: postgres:16
+    container_name: soc-postgres
+    restart: always
+    environment:
+      POSTGRES_USER: socadmin
+      POSTGRES_PASSWORD: socpassword
+      POSTGRES_DB: socdb
+    ports:
+      - "5432:5432"
