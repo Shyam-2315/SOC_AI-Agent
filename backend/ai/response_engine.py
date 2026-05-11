@@ -1,22 +1,19 @@
-BLOCKED_IPS = []
-
-
 def generate_response(alert_data: dict):
 
     actions = []
+    blocked_ips = []
 
-    severity = alert_data.get("severity")
+    severity = (alert_data.get("severity") or "").lower()
 
     ip_address = alert_data.get("ip_address")
 
     event_type = alert_data.get("event_type")
 
     # AUTO BLOCK MALICIOUS IPS
-    if severity == "Critical":
+    if severity == "critical":
 
-        if ip_address not in BLOCKED_IPS:
-
-            BLOCKED_IPS.append(ip_address)
+        if ip_address:
+            blocked_ips.append(ip_address)
 
             actions.append(
                 f"Blocked malicious IP: {ip_address}"
@@ -68,5 +65,5 @@ def generate_response(alert_data: dict):
 
     return {
         "automated_actions": actions,
-        "blocked_ips": BLOCKED_IPS
+        "blocked_ips": blocked_ips
     }

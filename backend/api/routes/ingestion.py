@@ -1,181 +1,314 @@
+# backend/api/routes/ingestion.py
+
+from datetime import datetime, timezone
+
 from fastapi import APIRouter, Depends
 
-from pydantic import BaseModel
+from models.log_model import LogModel
 
 from core.database import (
     logs_collection,
-    alerts_collection
+    alerts_collection,
+    incidents_collection,
+    response_actions_collection,
 )
+from core.dependencies import get_collector_organization_id
 
-from core.dependencies import (
-    get_current_user
-)
+from ai.threat_classifier import classify_threat
+from ai.campaign_detector import detect_attack_campaign
+from ai.mitre_mapper import map_to_mitre
+from ai.response_engine import generate_response
+from ai.threat_intel import check_ip_reputation
 
 from websocket.manager import manager
 
-from ai.anomaly_detector import detect_anomaly
-from ai.threat_intel import check_ip_reputation
-from ai.mitre_mapper import map_to_mitre
-from ai.response_engine import generate_response
-
-
 router = APIRouter(
-    tags=["Ingestion"]
+    prefix="/ingest",
+    tags=["Log Ingestion"]
 )
 
 
-class LogIngest(BaseModel):
-
-    source: str
-    event_type: str
-    message: str
-    ip_address: str
-    event_count: int
-
-
-def classify_threat(event_type: str):
-
-    high_threats = [
-        "ssh_attack",
-        "malware",
-        "ransomware"
-    ]
-
-    if event_type in high_threats:
-
-        return "High"
-
-    return "Low"
-
-
-@router.post("/ingest")
+@router.post("/")
 async def ingest_log(
-    log: LogIngest,
-    user=Depends(get_current_user)
+    data: LogModel,
+    organization_id: str = Depends(get_collector_organization_id),
 ):
 
-    log_dict = log.dict()
+    # =========================
+    # AI THREAT CLASSIFICATION
+    # =========================
 
-    anomaly_result = detect_anomaly(
-        log.event_count
+    threat_result = classify_threat(
+        data.event_type,
+        data.severity,
+        data.message
     )
 
-    reputation_result = check_ip_reputation(
-        log.ip_address
+    mitre = map_to_mitre(data.event_type)
+    mitre_tactic = mitre["tactic"]
+    mitre_technique = (
+        f"{mitre['technique_id']} - {mitre['technique_name']}"
+        if mitre["technique_id"] != "Unknown"
+        else "Unknown"
     )
+    ip_reputation = check_ip_reputation(str(data.ip_address))
 
-    mitre_result = map_to_mitre(
-        log.event_type
-    )
+    # =========================
+    # LOG DOCUMENT
+    # =========================
 
-    threat_level = classify_threat(
-        log.event_type
-    )
+    log_data = {
 
-    # AI anomaly escalation
-    if anomaly_result["is_anomaly"]:
+        "source": data.source,
+        "event_type": data.event_type,
+        "severity": data.severity,
+        "message": data.message,
+        "ip_address": str(data.ip_address),
 
-        threat_level = "Critical"
+        # MULTI TENANT
+        "organization_id":
+            organization_id,
 
-    # Threat intelligence escalation
-    if reputation_result["malicious"]:
+        # AI
+        "threat_score":
+            threat_result["threat_score"],
 
-        threat_level = "Critical"
+        "threat_label":
+            threat_result["label"],
 
-    alert_data = {
-
-        "source": log.source,
-
-        "event_type": log.event_type,
-
-        "message": log.message,
-
-        "ip_address": log.ip_address,
-
-        "event_count": log.event_count,
-
-        "severity": threat_level,
-
-        # AI anomaly
-        "anomaly_detected":
-            anomaly_result["is_anomaly"],
-
-        "anomaly_score":
-            anomaly_result["anomaly_score"],
-
-        # Threat Intel
-        "malicious_ip":
-            reputation_result["malicious"],
-
-        "threat_source":
-            reputation_result["threat_source"],
-
-        "threat_confidence":
-            reputation_result["confidence"],
-
-        # MITRE ATT&CK
-        "mitre_technique_id":
-            mitre_result["technique_id"],
+        # MITRE
+        "mitre_tactic":
+            mitre_tactic,
 
         "mitre_technique":
-            mitre_result["technique_name"],
+            mitre_technique,
 
-        "mitre_tactic":
-            mitre_result["tactic"]
+        "ip_reputation":
+            ip_reputation,
+
+        "timestamp":
+            datetime.now(timezone.utc)
     }
 
-    # SOAR RESPONSE ENGINE
-    response_actions = generate_response(
-        alert_data
-    )
-
-    alert_data["automated_actions"] = (
-        response_actions["automated_actions"]
-    )
+    # =========================
+    # STORE LOG
+    # =========================
 
     log_result = await logs_collection.insert_one(
-        log_dict
+        log_data
     )
 
-    alert_result = await alerts_collection.insert_one(
-        alert_data
-    )
+    # =========================
+    # ALERT GENERATION
+    # =========================
 
-    alert_data["_id"] = str(
-        alert_result.inserted_id
-    )
+    generated_alert = False
 
-    # REAL-TIME ALERT STREAM
-    await manager.broadcast({
-        "type": "new_alert",
-        "data": alert_data
-    })
+    if (
+        threat_result["label"] == "malicious"
+        or data.severity.lower() == "critical"
+    ):
 
-    # REAL-TIME SOAR STREAM
-    await manager.broadcast({
-        "type": "automated_response",
-        "data": response_actions
-    })
+        generated_alert = True
+
+        alert_data = {
+
+            "log_id":
+                str(log_result.inserted_id),
+
+            "source":
+                data.source,
+
+            "event_type":
+                data.event_type,
+
+            "severity":
+                data.severity,
+
+            "message":
+                data.message,
+
+            "ip_address":
+                str(data.ip_address),
+
+            # MULTI TENANT
+            "organization_id":
+                organization_id,
+
+            # AI
+            "threat_score":
+                threat_result["threat_score"],
+
+            "threat_label":
+                threat_result["label"],
+
+            # MITRE
+            "mitre_tactic":
+                mitre_tactic,
+
+            "mitre_technique":
+                mitre_technique,
+
+            "ip_reputation":
+                ip_reputation,
+
+            "status":
+                "open",
+
+            "timestamp":
+                datetime.now(timezone.utc)
+        }
+
+        alert_result = await alerts_collection.insert_one(
+            alert_data
+        )
+
+        automated_response = generate_response(alert_data)
+        response_action_data = {
+            "alert_id": str(alert_result.inserted_id),
+            "log_id": str(log_result.inserted_id),
+            "organization_id": organization_id,
+            "event_type": data.event_type,
+            "severity": data.severity,
+            "ip_address": str(data.ip_address),
+            "automated_actions": automated_response["automated_actions"],
+            "blocked_ips": automated_response["blocked_ips"],
+            "status": "simulated",
+            "timestamp": datetime.now(timezone.utc),
+        }
+
+        await response_actions_collection.insert_one(response_action_data)
+
+        # =========================
+        # INCIDENT GENERATION
+        # =========================
+
+        incident_data = {
+
+            "alert_id":
+                str(alert_result.inserted_id),
+
+            "title":
+                f"{data.event_type} incident detected",
+
+            "severity":
+                data.severity,
+
+            "status":
+                "open",
+
+            "assigned_to":
+                None,
+
+            "organization_id":
+                organization_id,
+
+            "timestamp":
+                datetime.now(timezone.utc)
+        }
+
+        await incidents_collection.insert_one(
+            incident_data
+        )
+
+        # =========================
+        # CAMPAIGN DETECTION
+        # =========================
+
+        campaign_result = await detect_attack_campaign(
+            str(data.ip_address),
+            organization_id
+        )
+
+        # =========================
+        # WEBSOCKET ALERT PUSH
+        # =========================
+
+        websocket_payload = {
+
+            "type": "alert",
+
+            "data": {
+
+                "event_type":
+                    data.event_type,
+
+                "severity":
+                    data.severity,
+
+                "message":
+                    data.message,
+
+                "ip_address":
+                    str(data.ip_address),
+
+                "organization_id":
+                    organization_id,
+
+                "threat_score":
+                    threat_result["threat_score"],
+
+                "mitre_tactic":
+                    mitre_tactic,
+
+                "mitre_technique":
+                    mitre_technique,
+
+                "campaign_detected":
+                    campaign_result.get(
+                        "campaign_detected",
+                        False
+                    ),
+
+                "ip_reputation":
+                    ip_reputation,
+
+                "automated_response":
+                    automated_response
+            }
+        }
+
+        await manager.broadcast(
+            websocket_payload,
+            organization_id=organization_id,
+        )
+
+    # =========================
+    # FINAL RESPONSE
+    # =========================
 
     return {
-        "status": "processed",
-        "log_id": str(log_result.inserted_id),
-        "alert": alert_data,
-        "response_actions": response_actions
+
+        "message":
+            "Log ingested successfully",
+
+        "log_id":
+            str(log_result.inserted_id),
+
+        "organization_id":
+            organization_id,
+
+        "threat_analysis": {
+
+            "threat_score":
+                threat_result["threat_score"],
+
+            "label":
+                threat_result["label"]
+        },
+
+        "ip_reputation":
+            ip_reputation,
+
+        "mitre_attack": {
+
+            "tactic":
+                mitre_tactic,
+
+            "technique":
+                mitre_technique
+        },
+
+        "alert_generated":
+            generated_alert
     }
-
-
-@router.get("/alerts")
-async def get_alerts(
-    user=Depends(get_current_user)
-):
-
-    alerts = []
-
-    async for alert in alerts_collection.find():
-
-        alert["_id"] = str(alert["_id"])
-
-        alerts.append(alert)
-
-    return alerts
