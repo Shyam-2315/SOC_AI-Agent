@@ -1,11 +1,14 @@
-import numpy as np
-import joblib
+from pathlib import Path
 
+import joblib
+import numpy as np
 from sklearn.ensemble import IsolationForest
 
 
+MODEL_PATH = Path(__file__).with_name("anomaly_model.pkl")
+
 # NORMAL SOC EVENT COUNTS
-X = np.array([
+TRAINING_DATA = np.array([
     [5],
     [7],
     [8],
@@ -15,20 +18,20 @@ X = np.array([
     [20],
     [22],
     [25],
-    [30]
+    [30],
 ])
 
 
-model = IsolationForest(
-    contamination=0.1,
-    random_state=42
-)
+def train_model(model_path: Path = MODEL_PATH) -> Path:
+    model = IsolationForest(
+        contamination=0.1,
+        random_state=42,
+    )
+    model.fit(TRAINING_DATA)
+    joblib.dump(model, model_path)
+    return model_path
 
-model.fit(X)
 
-joblib.dump(
-    model,
-    "ai/anomaly_model.pkl"
-)
-
-print("Anomaly detection model trained")
+if __name__ == "__main__":
+    output_path = train_model()
+    print(f"Anomaly detection model trained: {output_path}")

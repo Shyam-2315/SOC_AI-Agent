@@ -1,12 +1,3 @@
-from pydantic import BaseModel, Field
+from app.schemas.organization import OrganizationCreate, OrganizationResponse
 
-
-class OrganizationCreate(BaseModel):
-
-    name: str = Field(min_length=2, max_length=120)
-
-
-class OrganizationResponse(BaseModel):
-
-    id: str
-    name: str
+__all__ = ["OrganizationCreate", "OrganizationResponse"]

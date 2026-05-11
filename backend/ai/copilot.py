@@ -1,4 +1,4 @@
-from core.database import alerts_collection, incidents_collection
+from app.db.client import alerts_collection, incidents_collection
 
 
 async def _collect_alerts(query: dict):

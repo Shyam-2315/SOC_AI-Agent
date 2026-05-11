@@ -1,6 +1,3 @@
-from collections import defaultdict
-
-
 ATTACK_PATTERNS = {
 
     (

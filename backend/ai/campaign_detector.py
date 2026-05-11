@@ -1,6 +1,4 @@
-# backend/ai/campaign_detector.py
-
-from core.database import alerts_collection
+from app.db.client import alerts_collection
 
 
 async def detect_attack_campaign(

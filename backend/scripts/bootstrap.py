@@ -5,15 +5,16 @@ from pathlib import Path
 import sys
 
 
-sys.path.append(str(Path(__file__).resolve().parents[1]))
+if __package__ in {None, ""}:
+    sys.path.append(str(Path(__file__).resolve().parents[1]))
 
-from core.database import (
+from app.db import (
     close_database,
     create_indexes,
     organizations_collection,
     users_collection,
 )
-from core.security import UserRole, hash_password
+from app.core.security import UserRole, hash_password
 
 
 async def bootstrap(

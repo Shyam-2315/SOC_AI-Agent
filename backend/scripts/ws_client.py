@@ -4,7 +4,8 @@ from pathlib import Path
 import sys
 
 
-sys.path.append(str(Path(__file__).resolve().parents[1]))
+if __package__ in {None, ""}:
+    sys.path.append(str(Path(__file__).resolve().parents[1]))
 
 import websockets
 
@@ -12,7 +13,9 @@ import websockets
 async def listen(url: str, token: str):
     websocket_url = f"{url}?token={token}"
     async with websockets.connect(websocket_url) as websocket:
-        await websocket.send("connected")
+        await websocket.send(
+            '{"action":"subscribe","replace":true,"event_types":["soc.alert.created"]}'
+        )
         while True:
             print(await websocket.recv())
 
