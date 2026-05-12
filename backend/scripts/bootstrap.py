@@ -10,11 +10,13 @@ if __package__ in {None, ""}:
 
 from app.db import (
     close_database,
+    collectors_collection,
     create_indexes,
     organizations_collection,
     users_collection,
 )
 from app.core.security import UserRole, hash_password
+from app.services.collectors import hash_collector_token
 
 
 async def bootstrap(
@@ -64,10 +66,30 @@ async def bootstrap(
             {"$set": user_data},
         )
 
+    now = datetime.now(timezone.utc)
+    await collectors_collection.update_one(
+        {"organization_id": organization_id, "name": "Bootstrap Collector"},
+        {
+            "$set": {
+                "type": "linux",
+                "api_key_hash": hash_collector_token(collector_token),
+                "status": "active",
+                "updated_at": now,
+            },
+            "$setOnInsert": {
+                "name": "Bootstrap Collector",
+                "organization_id": organization_id,
+                "last_seen_at": None,
+                "created_at": now,
+            },
+        },
+        upsert=True,
+    )
+
     print("Bootstrap complete")
     print(f"organization_id={organization_id}")
     print(f"admin_email={email}")
-    print(f"COLLECTOR_API_KEYS={collector_token}:{organization_id}")
+    print(f"collector_token={collector_token}")
 
 
 def parse_args():

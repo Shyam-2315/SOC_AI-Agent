@@ -49,11 +49,21 @@ async def register_user(user: UserRegister) -> dict:
     if not organization:
         raise HTTPException(status_code=400, detail="Organization not found")
 
+    existing_org_users = await users_collection.count_documents(
+        {"organization_id": user.organization_id}
+    )
+    if existing_org_users > 0:
+        raise HTTPException(
+            status_code=403,
+            detail="Organization already has an admin; invite users from the console",
+        )
+    role = UserRole.admin.value
+
     user_data = {
         "username": user.username,
         "email": user.email,
         "password": hash_password(user.password),
-        "role": UserRole.analyst.value,
+        "role": role,
         "organization_id": user.organization_id,
         "disabled": False,
         "created_at": datetime.now(timezone.utc),
@@ -69,6 +79,7 @@ async def register_user(user: UserRegister) -> dict:
     return {
         "message": "User registered",
         "user_id": str(result.inserted_id),
+        "role": role,
     }
 
 

@@ -12,6 +12,10 @@ ROLE_PERMISSIONS = {
         "soar:read",
         "threat_hunting:read",
         "copilot:query",
+        "rules:read",
+        "rules:write",
+        "collectors:read",
+        "collectors:write",
         "users:read",
         "users:write",
     },
@@ -24,6 +28,8 @@ ROLE_PERMISSIONS = {
         "soar:read",
         "threat_hunting:read",
         "copilot:query",
+        "rules:read",
+        "rules:write",
     },
     UserRole.viewer.value: {
         "alerts:read",
@@ -32,6 +38,7 @@ ROLE_PERMISSIONS = {
         "organizations:read",
         "soar:read",
         "threat_hunting:read",
+        "rules:read",
     },
 }
 

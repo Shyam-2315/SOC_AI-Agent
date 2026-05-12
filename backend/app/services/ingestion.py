@@ -21,6 +21,7 @@ from app.realtime.events import build_realtime_event
 from app.realtime.pubsub import publish_realtime_event
 from app.schemas.log import LogModel
 from app.services.audit import write_audit_event
+from app.services.rules import evaluate_rules
 
 
 logger = get_logger(__name__)
@@ -75,6 +76,8 @@ async def _store_log(context: dict) -> str:
         "mitre_tactic": context["mitre_tactic"],
         "mitre_technique": context["mitre_technique"],
         "ip_reputation": context["ip_reputation"],
+        "matched_rule_id": context.get("matched_rule_id"),
+        "matched_rule_name": context.get("matched_rule_name"),
         "timestamp": datetime.now(timezone.utc),
     }
     result = await logs_collection.insert_one(log_document)
@@ -254,10 +257,23 @@ async def _process_alert_artifacts(alert_context: dict) -> dict:
         "mitre_tactic": alert_context["mitre_tactic"],
         "mitre_technique": alert_context["mitre_technique"],
         "ip_reputation": alert_context["ip_reputation"],
+        "matched_rule_id": alert_context.get("matched_rule_id"),
+        "matched_rule_name": alert_context.get("matched_rule_name"),
         "status": "open",
         "timestamp": datetime.now(timezone.utc),
     }
     alert_result = await alerts_collection.insert_one(alert_data)
+    logger.info(
+        "alert created",
+        extra={
+            "organization_id": alert_context["organization_id"],
+            "event_type": alert_context["event_type"],
+            "alert_id": str(alert_result.inserted_id),
+            "log_id": alert_context["log_id"],
+            "matched_rule_id": alert_context.get("matched_rule_id"),
+            "matched_rule_name": alert_context.get("matched_rule_name"),
+        },
+    )
 
     automated_response = generate_response(alert_data)
     response_action_data = {
@@ -287,16 +303,18 @@ async def _process_alert_artifacts(alert_context: dict) -> dict:
         },
     )
 
-    incident_data = {
-        "alert_id": str(alert_result.inserted_id),
-        "title": f"{alert_context['event_type']} incident detected",
-        "severity": alert_context["severity"],
-        "status": "open",
-        "assigned_to": None,
-        "organization_id": alert_context["organization_id"],
-        "timestamp": datetime.now(timezone.utc),
-    }
-    incident_result = await incidents_collection.insert_one(incident_data)
+    incident_result = None
+    if alert_context["severity"] in {"high", "critical"}:
+        incident_data = {
+            "alert_id": str(alert_result.inserted_id),
+            "title": f"{alert_context['event_type']} incident detected",
+            "severity": alert_context["severity"],
+            "status": "open",
+            "assigned_to": None,
+            "organization_id": alert_context["organization_id"],
+            "timestamp": datetime.now(timezone.utc),
+        }
+        incident_result = await incidents_collection.insert_one(incident_data)
 
     campaign_result = await detect_attack_campaign(
         alert_context["ip_address"],
@@ -318,20 +336,24 @@ async def _process_alert_artifacts(alert_context: dict) -> dict:
             "campaign_detected": campaign_result.get("campaign_detected", False),
             "ip_reputation": alert_context["ip_reputation"],
             "automated_response": automated_response,
+            "matched_rule_id": alert_context.get("matched_rule_id"),
+            "matched_rule_name": alert_context.get("matched_rule_name"),
         },
     )
-    incident_event = build_realtime_event(
-        event_type="soc.incident.created",
-        organization_id=alert_context["organization_id"],
-        payload={
-            "incident_id": str(incident_result.inserted_id),
-            "alert_id": str(alert_result.inserted_id),
-            "title": incident_data["title"],
-            "severity": incident_data["severity"],
-            "status": incident_data["status"],
-            "timestamp": incident_data["timestamp"],
-        },
-    )
+    incident_event = None
+    if incident_result is not None:
+        incident_event = build_realtime_event(
+            event_type="soc.incident.created",
+            organization_id=alert_context["organization_id"],
+            payload={
+                "incident_id": str(incident_result.inserted_id),
+                "alert_id": str(alert_result.inserted_id),
+                "title": incident_data["title"],
+                "severity": incident_data["severity"],
+                "status": incident_data["status"],
+                "timestamp": incident_data["timestamp"],
+            },
+        )
     response_action_event = build_realtime_event(
         event_type="soc.response_action.created",
         organization_id=alert_context["organization_id"],
@@ -347,15 +369,18 @@ async def _process_alert_artifacts(alert_context: dict) -> dict:
         },
     )
     await publish_realtime_event(alert_event)
-    await publish_realtime_event(incident_event)
+    if incident_event is not None:
+        await publish_realtime_event(incident_event)
     await publish_realtime_event(response_action_event)
 
-    return {
+    result = {
         "alert_id": str(alert_result.inserted_id),
         "response_action_id": str(response_action_result.inserted_id),
-        "incident_id": str(incident_result.inserted_id),
         "campaign_detected": campaign_result.get("campaign_detected", False),
     }
+    if incident_result is not None:
+        result["incident_id"] = str(incident_result.inserted_id)
+    return result
 
 
 async def ingest_log(
@@ -363,8 +388,20 @@ async def ingest_log(
     organization_id: str,
     *,
     force_background: bool = False,
+    force_sync: bool = False,
 ) -> dict:
     log_context = _build_log_context(data, organization_id)
+    matched_rule = await evaluate_rules(log_context)
+    if matched_rule:
+        log_context["matched_rule_id"] = matched_rule["id"]
+        log_context["matched_rule_name"] = matched_rule["name"]
+        log_context["alert_generated"] = True
+        log_context["severity"] = matched_rule["severity"]
+        if matched_rule.get("mitre_tactic"):
+            log_context["mitre_tactic"] = matched_rule["mitre_tactic"]
+        if matched_rule.get("mitre_technique"):
+            log_context["mitre_technique"] = matched_rule["mitre_technique"]
+
     log_id = await _store_log(log_context)
 
     task_id = None
@@ -373,7 +410,7 @@ async def ingest_log(
 
     if log_context["alert_generated"]:
         alert_context = _build_alert_context(log_context, log_id)
-        use_background_processing = force_background or settings.celery_enabled
+        use_background_processing = (force_background or settings.celery_enabled) and not force_sync
         if use_background_processing:
             task_id = await _enqueue_alert_processing(alert_context)
             processing_mode = "celery"
@@ -392,6 +429,7 @@ async def ingest_log(
         },
         "ip_reputation": log_context["ip_reputation"],
         "alert_generated": log_context["alert_generated"],
+        "matched_rule": matched_rule,
         "processing_mode": processing_mode,
         "alert_processing_status": alert_processing_status,
     }

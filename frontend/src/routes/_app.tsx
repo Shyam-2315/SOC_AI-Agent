@@ -1,6 +1,7 @@
-import { createFileRoute, redirect, Outlet } from "@tanstack/react-router";
-import { AppSidebar } from "@/components/AppSidebar";
-import { TopBar } from "@/components/TopBar";
+import { createFileRoute, Outlet, redirect } from "@tanstack/react-router";
+import { DebugPanel } from "@/components/soc/DebugPanel";
+import { Sidebar } from "@/components/soc/Sidebar";
+import { Topbar } from "@/components/soc/Topbar";
 import { getToken } from "@/lib/api";
 
 export const Route = createFileRoute("/_app")({
@@ -14,13 +15,14 @@ export const Route = createFileRoute("/_app")({
 
 function AppLayout() {
   return (
-    <div className="flex min-h-screen w-full bg-background text-foreground">
-      <AppSidebar />
+    <div className="flex min-h-screen w-full bg-background">
+      <Sidebar />
       <div className="flex min-w-0 flex-1 flex-col">
-        <TopBar />
-        <main className="flex-1 overflow-y-auto p-4 md:p-6">
+        <Topbar />
+        <main className="flex-1 px-4 py-6 md:px-8 md:py-8">
           <Outlet />
         </main>
+        <DebugPanel />
       </div>
     </div>
   );

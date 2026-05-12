@@ -47,6 +47,26 @@ celery -A app.workers.celery_app.celery_app worker --loglevel=info -Q alert-proc
 
 ## 4. Start The Full Docker Stack
 
+From the project root, the complete connected platform starts with one command:
+
+```bash
+cd /home/shyam2315/Projects/ai-soc-platform
+./start.sh --build --seed-demo
+```
+
+This starts FastAPI, MongoDB, Redis, Celery, Nginx, the Lovable frontend, WebSockets, and the demo seed.
+
+Open:
+
+```text
+Frontend direct UI: http://127.0.0.1:8080
+Nginx UI/API:       http://127.0.0.1
+API readiness:      http://127.0.0.1/health/ready
+WebSocket:          ws://127.0.0.1/ws/alerts?token=<jwt>
+```
+
+The frontend direct container on `:8080` is only the browser UI. Browser REST and WebSocket traffic should go through Nginx on `http://127.0.0.1` and `ws://127.0.0.1`.
+
 ```bash
 cd /home/shyam2315/Projects/ai-soc-platform/backend
 docker compose -f docker-compose.prod.yml up -d --build
@@ -67,11 +87,11 @@ python scripts/production_smoke.py
 
 ## 5. Start The Frontend
 
-The frontend has built-in local defaults:
+The connected frontend defaults are:
 
 ```text
-API: http://127.0.0.1:8000
-WS:  ws://127.0.0.1:8000
+API: http://127.0.0.1
+WS:  ws://127.0.0.1
 ```
 
 Start it with:
@@ -86,6 +106,12 @@ Open the Vite URL, normally:
 
 ```text
 http://localhost:5173
+```
+
+If you intentionally run FastAPI directly without Nginx, override the frontend environment before starting Vite:
+
+```bash
+VITE_API_BASE_URL=http://127.0.0.1:8000 VITE_WS_BASE_URL=ws://127.0.0.1:8000 npm run dev
 ```
 
 ## 6. Test Log Ingestion
@@ -107,7 +133,7 @@ test-collector-token
 The frontend connects to:
 
 ```text
-ws://127.0.0.1:8000/ws/alerts?token=<jwt>
+ws://127.0.0.1/ws/alerts?token=<jwt>
 ```
 
 Ingest a critical or malicious log and confirm live events:

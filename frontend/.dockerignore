@@ -1,0 +1,7 @@
+node_modules
+dist
+.output
+.vinxi
+.git
+npm-debug.log
+*.Zone.Identifier

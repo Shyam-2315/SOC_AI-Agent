@@ -12,16 +12,19 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as AppRouteImport } from './routes/_app'
 import { Route as IndexRouteImport } from './routes/index'
-import { Route as AppUsersRouteImport } from './routes/_app/users'
-import { Route as AppSoarRouteImport } from './routes/_app/soar'
-import { Route as AppRealtimeRouteImport } from './routes/_app/realtime'
-import { Route as AppOrganizationRouteImport } from './routes/_app/organization'
-import { Route as AppIngestRouteImport } from './routes/_app/ingest'
-import { Route as AppIncidentsRouteImport } from './routes/_app/incidents'
-import { Route as AppHuntingRouteImport } from './routes/_app/hunting'
-import { Route as AppDashboardRouteImport } from './routes/_app/dashboard'
-import { Route as AppCopilotRouteImport } from './routes/_app/copilot'
-import { Route as AppAlertsRouteImport } from './routes/_app/alerts'
+import { Route as AppUsersRouteImport } from './routes/_app.users'
+import { Route as AppSoarRouteImport } from './routes/_app.soar'
+import { Route as AppRulesRouteImport } from './routes/_app.rules'
+import { Route as AppRealtimeRouteImport } from './routes/_app.realtime'
+import { Route as AppPacksRouteImport } from './routes/_app.packs'
+import { Route as AppOrgsRouteImport } from './routes/_app.orgs'
+import { Route as AppIngestRouteImport } from './routes/_app.ingest'
+import { Route as AppIncidentsRouteImport } from './routes/_app.incidents'
+import { Route as AppHuntingRouteImport } from './routes/_app.hunting'
+import { Route as AppDashboardRouteImport } from './routes/_app.dashboard'
+import { Route as AppCopilotRouteImport } from './routes/_app.copilot'
+import { Route as AppCollectorsRouteImport } from './routes/_app.collectors'
+import { Route as AppAlertsRouteImport } from './routes/_app.alerts'
 
 const LoginRoute = LoginRouteImport.update({
   id: '/login',
@@ -47,14 +50,24 @@ const AppSoarRoute = AppSoarRouteImport.update({
   path: '/soar',
   getParentRoute: () => AppRoute,
 } as any)
+const AppRulesRoute = AppRulesRouteImport.update({
+  id: '/rules',
+  path: '/rules',
+  getParentRoute: () => AppRoute,
+} as any)
 const AppRealtimeRoute = AppRealtimeRouteImport.update({
   id: '/realtime',
   path: '/realtime',
   getParentRoute: () => AppRoute,
 } as any)
-const AppOrganizationRoute = AppOrganizationRouteImport.update({
-  id: '/organization',
-  path: '/organization',
+const AppPacksRoute = AppPacksRouteImport.update({
+  id: '/packs',
+  path: '/packs',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppOrgsRoute = AppOrgsRouteImport.update({
+  id: '/orgs',
+  path: '/orgs',
   getParentRoute: () => AppRoute,
 } as any)
 const AppIngestRoute = AppIngestRouteImport.update({
@@ -82,6 +95,11 @@ const AppCopilotRoute = AppCopilotRouteImport.update({
   path: '/copilot',
   getParentRoute: () => AppRoute,
 } as any)
+const AppCollectorsRoute = AppCollectorsRouteImport.update({
+  id: '/collectors',
+  path: '/collectors',
+  getParentRoute: () => AppRoute,
+} as any)
 const AppAlertsRoute = AppAlertsRouteImport.update({
   id: '/alerts',
   path: '/alerts',
@@ -92,13 +110,16 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/login': typeof LoginRoute
   '/alerts': typeof AppAlertsRoute
+  '/collectors': typeof AppCollectorsRoute
   '/copilot': typeof AppCopilotRoute
   '/dashboard': typeof AppDashboardRoute
   '/hunting': typeof AppHuntingRoute
   '/incidents': typeof AppIncidentsRoute
   '/ingest': typeof AppIngestRoute
-  '/organization': typeof AppOrganizationRoute
+  '/orgs': typeof AppOrgsRoute
+  '/packs': typeof AppPacksRoute
   '/realtime': typeof AppRealtimeRoute
+  '/rules': typeof AppRulesRoute
   '/soar': typeof AppSoarRoute
   '/users': typeof AppUsersRoute
 }
@@ -106,13 +127,16 @@ export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/login': typeof LoginRoute
   '/alerts': typeof AppAlertsRoute
+  '/collectors': typeof AppCollectorsRoute
   '/copilot': typeof AppCopilotRoute
   '/dashboard': typeof AppDashboardRoute
   '/hunting': typeof AppHuntingRoute
   '/incidents': typeof AppIncidentsRoute
   '/ingest': typeof AppIngestRoute
-  '/organization': typeof AppOrganizationRoute
+  '/orgs': typeof AppOrgsRoute
+  '/packs': typeof AppPacksRoute
   '/realtime': typeof AppRealtimeRoute
+  '/rules': typeof AppRulesRoute
   '/soar': typeof AppSoarRoute
   '/users': typeof AppUsersRoute
 }
@@ -122,13 +146,16 @@ export interface FileRoutesById {
   '/_app': typeof AppRouteWithChildren
   '/login': typeof LoginRoute
   '/_app/alerts': typeof AppAlertsRoute
+  '/_app/collectors': typeof AppCollectorsRoute
   '/_app/copilot': typeof AppCopilotRoute
   '/_app/dashboard': typeof AppDashboardRoute
   '/_app/hunting': typeof AppHuntingRoute
   '/_app/incidents': typeof AppIncidentsRoute
   '/_app/ingest': typeof AppIngestRoute
-  '/_app/organization': typeof AppOrganizationRoute
+  '/_app/orgs': typeof AppOrgsRoute
+  '/_app/packs': typeof AppPacksRoute
   '/_app/realtime': typeof AppRealtimeRoute
+  '/_app/rules': typeof AppRulesRoute
   '/_app/soar': typeof AppSoarRoute
   '/_app/users': typeof AppUsersRoute
 }
@@ -138,13 +165,16 @@ export interface FileRouteTypes {
     | '/'
     | '/login'
     | '/alerts'
+    | '/collectors'
     | '/copilot'
     | '/dashboard'
     | '/hunting'
     | '/incidents'
     | '/ingest'
-    | '/organization'
+    | '/orgs'
+    | '/packs'
     | '/realtime'
+    | '/rules'
     | '/soar'
     | '/users'
   fileRoutesByTo: FileRoutesByTo
@@ -152,13 +182,16 @@ export interface FileRouteTypes {
     | '/'
     | '/login'
     | '/alerts'
+    | '/collectors'
     | '/copilot'
     | '/dashboard'
     | '/hunting'
     | '/incidents'
     | '/ingest'
-    | '/organization'
+    | '/orgs'
+    | '/packs'
     | '/realtime'
+    | '/rules'
     | '/soar'
     | '/users'
   id:
@@ -167,13 +200,16 @@ export interface FileRouteTypes {
     | '/_app'
     | '/login'
     | '/_app/alerts'
+    | '/_app/collectors'
     | '/_app/copilot'
     | '/_app/dashboard'
     | '/_app/hunting'
     | '/_app/incidents'
     | '/_app/ingest'
-    | '/_app/organization'
+    | '/_app/orgs'
+    | '/_app/packs'
     | '/_app/realtime'
+    | '/_app/rules'
     | '/_app/soar'
     | '/_app/users'
   fileRoutesById: FileRoutesById
@@ -221,6 +257,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppSoarRouteImport
       parentRoute: typeof AppRoute
     }
+    '/_app/rules': {
+      id: '/_app/rules'
+      path: '/rules'
+      fullPath: '/rules'
+      preLoaderRoute: typeof AppRulesRouteImport
+      parentRoute: typeof AppRoute
+    }
     '/_app/realtime': {
       id: '/_app/realtime'
       path: '/realtime'
@@ -228,11 +271,18 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppRealtimeRouteImport
       parentRoute: typeof AppRoute
     }
-    '/_app/organization': {
-      id: '/_app/organization'
-      path: '/organization'
-      fullPath: '/organization'
-      preLoaderRoute: typeof AppOrganizationRouteImport
+    '/_app/packs': {
+      id: '/_app/packs'
+      path: '/packs'
+      fullPath: '/packs'
+      preLoaderRoute: typeof AppPacksRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/orgs': {
+      id: '/_app/orgs'
+      path: '/orgs'
+      fullPath: '/orgs'
+      preLoaderRoute: typeof AppOrgsRouteImport
       parentRoute: typeof AppRoute
     }
     '/_app/ingest': {
@@ -270,6 +320,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppCopilotRouteImport
       parentRoute: typeof AppRoute
     }
+    '/_app/collectors': {
+      id: '/_app/collectors'
+      path: '/collectors'
+      fullPath: '/collectors'
+      preLoaderRoute: typeof AppCollectorsRouteImport
+      parentRoute: typeof AppRoute
+    }
     '/_app/alerts': {
       id: '/_app/alerts'
       path: '/alerts'
@@ -282,26 +339,32 @@ declare module '@tanstack/react-router' {
 
 interface AppRouteChildren {
   AppAlertsRoute: typeof AppAlertsRoute
+  AppCollectorsRoute: typeof AppCollectorsRoute
   AppCopilotRoute: typeof AppCopilotRoute
   AppDashboardRoute: typeof AppDashboardRoute
   AppHuntingRoute: typeof AppHuntingRoute
   AppIncidentsRoute: typeof AppIncidentsRoute
   AppIngestRoute: typeof AppIngestRoute
-  AppOrganizationRoute: typeof AppOrganizationRoute
+  AppOrgsRoute: typeof AppOrgsRoute
+  AppPacksRoute: typeof AppPacksRoute
   AppRealtimeRoute: typeof AppRealtimeRoute
+  AppRulesRoute: typeof AppRulesRoute
   AppSoarRoute: typeof AppSoarRoute
   AppUsersRoute: typeof AppUsersRoute
 }
 
 const AppRouteChildren: AppRouteChildren = {
   AppAlertsRoute: AppAlertsRoute,
+  AppCollectorsRoute: AppCollectorsRoute,
   AppCopilotRoute: AppCopilotRoute,
   AppDashboardRoute: AppDashboardRoute,
   AppHuntingRoute: AppHuntingRoute,
   AppIncidentsRoute: AppIncidentsRoute,
   AppIngestRoute: AppIngestRoute,
-  AppOrganizationRoute: AppOrganizationRoute,
+  AppOrgsRoute: AppOrgsRoute,
+  AppPacksRoute: AppPacksRoute,
   AppRealtimeRoute: AppRealtimeRoute,
+  AppRulesRoute: AppRulesRoute,
   AppSoarRoute: AppSoarRoute,
   AppUsersRoute: AppUsersRoute,
 }

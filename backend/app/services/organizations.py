@@ -10,12 +10,12 @@ from app.services.audit import write_audit_event
 
 async def create_organization(
     organization: OrganizationCreate,
-    user: dict,
+    user: dict | None,
 ) -> dict:
     organization_data = {
         "name": organization.name,
         "created_at": datetime.now(timezone.utc),
-        "created_by": user["email"],
+        "created_by": user["email"] if user else "self-service-registration",
     }
     result = await organizations_collection.insert_one(organization_data)
     await write_audit_event(

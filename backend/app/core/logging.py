@@ -36,6 +36,12 @@ class JsonFormatter(logging.Formatter):
             "user_id",
             "organization_id",
             "event_type",
+            "rule_id",
+            "rule_name",
+            "alert_id",
+            "log_id",
+            "matched_rule_id",
+            "matched_rule_name",
         ):
             value = getattr(record, attribute, None)
             if value is not None:

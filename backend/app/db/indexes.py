@@ -4,6 +4,9 @@ from app.db.client import (
     alerts_collection,
     alert_processing_jobs_collection,
     audit_events_collection,
+    collectors_collection,
+    detection_rule_packs_collection,
+    detection_rules_collection,
     incidents_collection,
     logs_collection,
     organizations_collection,
@@ -66,4 +69,41 @@ async def create_indexes() -> None:
     )
     await audit_events_collection.create_index(
         [("event_type", ASCENDING), ("timestamp", DESCENDING)]
+    )
+    await detection_rules_collection.create_index(
+        [("organization_id", ASCENDING), ("enabled", ASCENDING)]
+    )
+    await detection_rules_collection.create_index(
+        [("organization_id", ASCENDING), ("created_at", DESCENDING)]
+    )
+    await detection_rules_collection.create_index(
+        [("organization_id", ASCENDING), ("name", ASCENDING)],
+        unique=True,
+    )
+    await detection_rules_collection.create_index(
+        [("organization_id", ASCENDING), ("pack_id", ASCENDING)]
+    )
+    await detection_rule_packs_collection.create_index(
+        [("organization_id", ASCENDING), ("created_at", DESCENDING)]
+    )
+    await detection_rule_packs_collection.create_index(
+        [("organization_id", ASCENDING), ("enabled", ASCENDING)]
+    )
+    await detection_rule_packs_collection.create_index(
+        [("organization_id", ASCENDING), ("name", ASCENDING), ("version", ASCENDING)],
+        unique=True,
+    )
+    await collectors_collection.create_index(
+        [("api_key_hash", ASCENDING)],
+        unique=True,
+    )
+    await collectors_collection.create_index(
+        [("organization_id", ASCENDING), ("status", ASCENDING)]
+    )
+    await collectors_collection.create_index(
+        [("organization_id", ASCENDING), ("created_at", DESCENDING)]
+    )
+    await collectors_collection.create_index(
+        [("organization_id", ASCENDING), ("name", ASCENDING)],
+        unique=True,
     )

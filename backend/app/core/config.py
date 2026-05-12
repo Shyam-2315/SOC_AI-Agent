@@ -139,6 +139,7 @@ class Settings:
     realtime_events_channel: str
     websocket_send_queue_size: int
     collector_api_keys: dict[str, str]
+    collector_batch_max_size: int
     auth_rate_limit_per_minute: int
     ingestion_rate_limit_per_minute: int
 
@@ -175,11 +176,6 @@ class Settings:
         if self.celery_enabled and not self.celery_broker_url:
             raise RuntimeError(
                 "CELERY_BROKER_URL is required when ALERT_PROCESSING_MODE=celery"
-            )
-
-        if self.is_production and self.public_registration_enabled:
-            raise RuntimeError(
-                "PUBLIC_REGISTRATION_ENABLED must be false in production"
             )
 
         if self.is_production:
@@ -270,6 +266,11 @@ settings = Settings(
     ).strip(),
     websocket_send_queue_size=_int_env("WEBSOCKET_SEND_QUEUE_SIZE", 500, minimum=10),
     collector_api_keys=_collector_keys(os.getenv("COLLECTOR_API_KEYS")),
+    collector_batch_max_size=_int_env(
+        "COLLECTOR_BATCH_MAX_SIZE",
+        100,
+        minimum=1,
+    ),
     auth_rate_limit_per_minute=_int_env("AUTH_RATE_LIMIT_PER_MINUTE", 20, minimum=1),
     ingestion_rate_limit_per_minute=_int_env(
         "INGESTION_RATE_LIMIT_PER_MINUTE",

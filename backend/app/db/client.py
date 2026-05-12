@@ -22,6 +22,9 @@ organizations_collection = db["organizations"]
 response_actions_collection = db["response_actions"]
 alert_processing_jobs_collection = db["alert_processing_jobs"]
 audit_events_collection = db["audit_events"]
+detection_rules_collection = db["detection_rules"]
+detection_rule_packs_collection = db["detection_rule_packs"]
+collectors_collection = db["collectors"]
 
 
 async def ping_database() -> None:

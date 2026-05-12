@@ -61,6 +61,15 @@ async def get_current_user(
     return await _load_current_user_from_claims(claims)
 
 
+async def get_optional_current_user(
+    credentials: HTTPAuthorizationCredentials = Depends(security),
+):
+    if credentials is None:
+        return None
+    claims = verify_token(credentials.credentials)
+    return await _load_current_user_from_claims(claims)
+
+
 def require_admin(user=Depends(get_current_user)):
     if user["role"] != UserRole.admin.value:
         raise HTTPException(
@@ -153,6 +162,7 @@ __all__ = [
     "collector_token_header",
     "get_collector_organization_id",
     "get_current_user",
+    "get_optional_current_user",
     "get_websocket_user",
     "pagination_params",
     "require_admin",
