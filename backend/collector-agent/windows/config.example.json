@@ -1,0 +1,9 @@
+{
+  "backend_url": "http://127.0.0.1",
+  "collector_token": "paste-collector-token-here",
+  "source_name": "windows-laptop",
+  "polling_interval_seconds": 15,
+  "batch_size": 50,
+  "logs_directory": "logs",
+  "state_file": "state.json"
+}
