@@ -60,6 +60,7 @@ This starts:
 - `mongo`: MongoDB
 - `redis`: Redis
 - `celery-worker`: Celery background worker
+- `syslog-receiver`: optional UDP syslog ingestion worker on port `5514`
 - `nginx`: reverse proxy for backend API and WebSocket traffic on ports `80` and `443`
 
 Supported commands:
@@ -97,7 +98,7 @@ The frontend container is exposed directly on `http://127.0.0.1:8080`. Browser A
 
 `VITE_API_BASE_URL` is the frontend source of truth for REST traffic when it is set. For the Docker stack it should stay `http://127.0.0.1`, which prevents stale browser overrides from accidentally sending API calls to the direct frontend UI container on `:8080`.
 
-`./start.sh` verifies Docker is running, verifies `backend/.env` exists, builds images, starts the stack, waits for backend, MongoDB, Redis, Celery, Nginx and frontend health, prints URLs, and seeds demo data when `DEMO_MODE=true` or `--seed-demo` is passed.
+`./start.sh` verifies Docker is running, verifies `backend/.env` exists, builds images, starts the stack, waits for backend, MongoDB, Redis, Celery, syslog receiver, Nginx and frontend health, prints URLs, and seeds demo data when `DEMO_MODE=true` or `--seed-demo` is passed.
 
 Fresh clone workflow:
 
@@ -126,12 +127,13 @@ Start the full stack with the active `.env`:
 docker compose -f docker-compose.prod.yml up -d --build
 ```
 
-Only Nginx is exposed publicly by the production compose file:
+The production compose file exposes only the required edge services:
 
 - `nginx`: public entrypoint on `80` and `443`
 - `frontend`: public frontend on `8080`
 - `app`: internal FastAPI service on `8000`
 - `celery-worker`: internal background worker for alert processing
+- `syslog-receiver`: UDP syslog receiver on `5514/udp` when enabled
 - `mongo`: internal authenticated MongoDB with persistent volume `mongo_data`
 - `redis`: internal password-protected Redis with persistent volume `redis_data`
 
@@ -257,6 +259,7 @@ Supported collector types:
 
 - `linux`
 - `windows`
+- `syslog`
 - `firewall`
 - `cloud`
 - `custom`
@@ -308,6 +311,49 @@ curl -X POST http://127.0.0.1/collector/ingest \
 ```
 
 Batch size is controlled by `COLLECTOR_BATCH_MAX_SIZE`. Responses include `accepted`, `rejected`, per-log `results`, and per-log validation `errors`.
+
+## Syslog Receiver
+
+The UDP syslog receiver runs as the `syslog-receiver` Docker Compose service and converts syslog datagrams into the existing collector ingest path. It uses a dedicated `SYSLOG_COLLECTOR_TOKEN` because syslog senders cannot attach HTTP headers.
+
+Environment:
+
+```env
+SYSLOG_ENABLED=false
+SYSLOG_HOST=0.0.0.0
+SYSLOG_PORT=5514
+SYSLOG_COLLECTOR_TOKEN=
+```
+
+Enable local syslog ingestion:
+
+```bash
+# Create a collector with type syslog, then copy its one-time api_key.
+SYSLOG_ENABLED=true
+SYSLOG_COLLECTOR_TOKEN=<syslog-collector-token>
+SYSLOG_PORT=5514
+```
+
+Send a local test message:
+
+```bash
+logger -n 127.0.0.1 -P 5514 "AI SOC syslog test critical event"
+```
+
+Syslog conversion:
+
+- `event_type`: `syslog_event`
+- `severity`: mapped from syslog priority when present, otherwise `low`
+- `source`: parsed hostname, falling back to sender IP
+- `message`: parsed timestamp/program/message fields
+- `ip_address`: UDP sender IP
+
+Health output includes `checks.syslog_receiver` on `/health/ready`. Docker status is visible with:
+
+```bash
+docker compose -f backend/docker-compose.prod.yml ps syslog-receiver
+docker compose -f backend/docker-compose.prod.yml logs -f syslog-receiver
+```
 
 ## Detection Rules
 

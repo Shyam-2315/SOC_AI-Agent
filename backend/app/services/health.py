@@ -52,6 +52,17 @@ def check_websockets() -> dict[str, Any]:
     return {"status": "ok", **manager.get_connection_stats()}
 
 
+def check_syslog_receiver() -> dict[str, Any]:
+    return {
+        "status": "enabled" if settings.syslog_enabled else "disabled",
+        "mode": "external-worker",
+        "host": settings.syslog_host,
+        "port": settings.syslog_port,
+        "transport": "udp",
+        "collector_token_configured": bool(settings.syslog_collector_token),
+    }
+
+
 async def readiness() -> dict[str, Any]:
     mongo, redis, celery = await asyncio.gather(
         check_mongo(),
@@ -63,6 +74,7 @@ async def readiness() -> dict[str, Any]:
         "redis": redis,
         "celery": celery,
         "websockets": check_websockets(),
+        "syslog_receiver": check_syslog_receiver(),
     }
     required = [mongo]
     if settings.redis_url:

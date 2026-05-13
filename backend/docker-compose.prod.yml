@@ -60,6 +60,31 @@ services:
     networks:
       - internal
 
+  syslog-receiver:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: ai-soc-platform-backend:prod
+    restart: unless-stopped
+    env_file:
+      - .env
+    command: ["python", "-m", "app.services.syslog_receiver"]
+    ports:
+      - "${SYSLOG_PORT:-5514}:${SYSLOG_PORT:-5514}/udp"
+    healthcheck:
+      test: ["CMD", "python", "-m", "app.services.syslog_receiver", "--check"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 10s
+    depends_on:
+      mongo:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - internal
+
   frontend:
     build:
       context: ../frontend

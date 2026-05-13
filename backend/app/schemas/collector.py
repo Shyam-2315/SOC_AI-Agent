@@ -5,7 +5,7 @@ from pydantic import Field, field_validator
 from app.schemas.base import APIModel
 
 
-CollectorType = Literal["linux", "windows", "firewall", "cloud", "custom"]
+CollectorType = Literal["linux", "windows", "syslog", "firewall", "cloud", "custom"]
 CollectorStatus = Literal["active", "disabled"]
 
 

@@ -140,6 +140,10 @@ class Settings:
     websocket_send_queue_size: int
     collector_api_keys: dict[str, str]
     collector_batch_max_size: int
+    syslog_enabled: bool
+    syslog_host: str
+    syslog_port: int
+    syslog_collector_token: Optional[str]
     auth_rate_limit_per_minute: int
     ingestion_rate_limit_per_minute: int
 
@@ -176,6 +180,11 @@ class Settings:
         if self.celery_enabled and not self.celery_broker_url:
             raise RuntimeError(
                 "CELERY_BROKER_URL is required when ALERT_PROCESSING_MODE=celery"
+            )
+
+        if self.syslog_enabled and self.is_production and not self.syslog_collector_token:
+            raise RuntimeError(
+                "SYSLOG_COLLECTOR_TOKEN is required when SYSLOG_ENABLED=true in production"
             )
 
         if self.is_production:
@@ -271,6 +280,10 @@ settings = Settings(
         100,
         minimum=1,
     ),
+    syslog_enabled=_bool_env("SYSLOG_ENABLED", False),
+    syslog_host=os.getenv("SYSLOG_HOST", "0.0.0.0").strip() or "0.0.0.0",
+    syslog_port=_int_env("SYSLOG_PORT", 5514, minimum=1),
+    syslog_collector_token=_optional_env("SYSLOG_COLLECTOR_TOKEN"),
     auth_rate_limit_per_minute=_int_env("AUTH_RATE_LIMIT_PER_MINUTE", 20, minimum=1),
     ingestion_rate_limit_per_minute=_int_env(
         "INGESTION_RATE_LIMIT_PER_MINUTE",
