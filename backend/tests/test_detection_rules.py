@@ -139,6 +139,18 @@ class DetectionRuleTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(result["rule"]["organization_id"], "org-1")
         self.assertEqual(len(self.rules_collection.documents), 1)
 
+    async def test_rule_creation_applies_starter_mitre_mapping(self):
+        payload = self._rule_payload(name="Linux sudo failure")
+        payload.event_type = "linux_sudo_failure"
+        payload.mitre_tactic = None
+        payload.mitre_technique = None
+
+        result = await rules_service.create_rule(payload, self.user)
+
+        self.assertEqual(result["rule"]["mitre_tactic_id"], "TA0004")
+        self.assertEqual(result["rule"]["mitre_tactic_name"], "Privilege Escalation")
+        self.assertEqual(result["rule"]["mitre_technique_id"], "T1548.003")
+
     async def test_rule_update(self):
         created = await rules_service.create_rule(self._rule_payload(), self.user)
         rule_id = created["rule"]["id"]
@@ -234,6 +246,8 @@ class DetectionRuleTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(result["matched_rule"]["id"], created["rule"]["id"])
         self.assertEqual(alerts.documents[0]["matched_rule_name"], "Critical SSH")
         self.assertEqual(alerts.documents[0]["severity"], "high")
+        self.assertEqual(alerts.documents[0]["mitre_tactic_id"], "TA0006")
+        self.assertEqual(alerts.documents[0]["mitre_technique_id"], "T1110")
         self.assertEqual(len(incidents.documents), 1)
 
 

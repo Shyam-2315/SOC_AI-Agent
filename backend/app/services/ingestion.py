@@ -13,6 +13,7 @@ from app.core.logging import get_logger
 from app.db.client import (
     alerts_collection,
     alert_processing_jobs_collection,
+    correlated_incidents_collection,
     incidents_collection,
     logs_collection,
     response_actions_collection,
@@ -21,6 +22,7 @@ from app.realtime.events import build_realtime_event
 from app.realtime.pubsub import publish_realtime_event
 from app.schemas.log import LogModel
 from app.services.audit import write_audit_event
+from app.services.correlation import correlate_alert
 from app.services.rules import evaluate_rules
 
 
@@ -56,6 +58,14 @@ def _build_log_context(
         "threat_label": threat_result["label"],
         "mitre_tactic": mitre_tactic,
         "mitre_technique": mitre_technique,
+        "mitre_tactic_id": mitre.get("tactic_id"),
+        "mitre_tactic_name": mitre_tactic if mitre_tactic != "Unknown" else None,
+        "mitre_technique_id": mitre["technique_id"] if mitre["technique_id"] != "Unknown" else None,
+        "mitre_technique_name": (
+            mitre["technique_name"] if mitre["technique_name"] != "Unknown" else None
+        ),
+        "mitre_subtechnique_id": None,
+        "mitre_subtechnique_name": None,
         "ip_reputation": ip_reputation,
         "alert_generated": (
             threat_result["label"] == "malicious" or data.severity.lower() == "critical"
@@ -75,6 +85,12 @@ async def _store_log(context: dict) -> str:
         "threat_label": context["threat_label"],
         "mitre_tactic": context["mitre_tactic"],
         "mitre_technique": context["mitre_technique"],
+        "mitre_tactic_id": context.get("mitre_tactic_id"),
+        "mitre_tactic_name": context.get("mitre_tactic_name"),
+        "mitre_technique_id": context.get("mitre_technique_id"),
+        "mitre_technique_name": context.get("mitre_technique_name"),
+        "mitre_subtechnique_id": context.get("mitre_subtechnique_id"),
+        "mitre_subtechnique_name": context.get("mitre_subtechnique_name"),
         "ip_reputation": context["ip_reputation"],
         "matched_rule_id": context.get("matched_rule_id"),
         "matched_rule_name": context.get("matched_rule_name"),
@@ -256,6 +272,12 @@ async def _process_alert_artifacts(alert_context: dict) -> dict:
         "threat_label": alert_context["threat_label"],
         "mitre_tactic": alert_context["mitre_tactic"],
         "mitre_technique": alert_context["mitre_technique"],
+        "mitre_tactic_id": alert_context.get("mitre_tactic_id"),
+        "mitre_tactic_name": alert_context.get("mitre_tactic_name"),
+        "mitre_technique_id": alert_context.get("mitre_technique_id"),
+        "mitre_technique_name": alert_context.get("mitre_technique_name"),
+        "mitre_subtechnique_id": alert_context.get("mitre_subtechnique_id"),
+        "mitre_subtechnique_name": alert_context.get("mitre_subtechnique_name"),
         "ip_reputation": alert_context["ip_reputation"],
         "matched_rule_id": alert_context.get("matched_rule_id"),
         "matched_rule_name": alert_context.get("matched_rule_name"),
@@ -308,13 +330,36 @@ async def _process_alert_artifacts(alert_context: dict) -> dict:
         incident_data = {
             "alert_id": str(alert_result.inserted_id),
             "title": f"{alert_context['event_type']} incident detected",
+            "description": alert_context["message"],
             "severity": alert_context["severity"],
-            "status": "open",
+            "status": "new",
             "assigned_to": None,
+            "assigned_to_user_id": None,
+            "assigned_to_email": None,
+            "investigation_notes": "",
+            "mitre_tactic_id": alert_context.get("mitre_tactic_id"),
+            "mitre_tactic_name": alert_context.get("mitre_tactic_name"),
+            "mitre_technique_id": alert_context.get("mitre_technique_id"),
+            "mitre_technique_name": alert_context.get("mitre_technique_name"),
+            "mitre_subtechnique_id": alert_context.get("mitre_subtechnique_id"),
+            "mitre_subtechnique_name": alert_context.get("mitre_subtechnique_name"),
+            "mitre_tactic": alert_context["mitre_tactic"],
+            "mitre_technique": alert_context["mitre_technique"],
             "organization_id": alert_context["organization_id"],
             "timestamp": datetime.now(timezone.utc),
         }
         incident_result = await incidents_collection.insert_one(incident_data)
+
+    correlation_result = await correlate_alert(
+        {
+            **alert_data,
+            "_id": alert_result.inserted_id,
+        },
+        incident_id=str(incident_result.inserted_id) if incident_result is not None else None,
+        alerts_store=alerts_collection,
+        incidents_store=incidents_collection,
+        correlated_store=correlated_incidents_collection,
+    )
 
     campaign_result = await detect_attack_campaign(
         alert_context["ip_address"],
@@ -333,6 +378,15 @@ async def _process_alert_artifacts(alert_context: dict) -> dict:
             "threat_score": alert_context["threat_score"],
             "mitre_tactic": alert_context["mitre_tactic"],
             "mitre_technique": alert_context["mitre_technique"],
+            "mitre_tactic_id": alert_context.get("mitre_tactic_id"),
+            "mitre_tactic_name": alert_context.get("mitre_tactic_name"),
+            "mitre_technique_id": alert_context.get("mitre_technique_id"),
+            "mitre_technique_name": alert_context.get("mitre_technique_name"),
+            "mitre_subtechnique_id": alert_context.get("mitre_subtechnique_id"),
+            "mitre_subtechnique_name": alert_context.get("mitre_subtechnique_name"),
+            "correlation_id": (
+                correlation_result.get("correlation_id") if correlation_result else None
+            ),
             "campaign_detected": campaign_result.get("campaign_detected", False),
             "ip_reputation": alert_context["ip_reputation"],
             "automated_response": automated_response,
@@ -352,6 +406,10 @@ async def _process_alert_artifacts(alert_context: dict) -> dict:
                 "severity": incident_data["severity"],
                 "status": incident_data["status"],
                 "timestamp": incident_data["timestamp"],
+                "mitre_tactic_id": incident_data.get("mitre_tactic_id"),
+                "mitre_tactic_name": incident_data.get("mitre_tactic_name"),
+                "mitre_technique_id": incident_data.get("mitre_technique_id"),
+                "mitre_technique_name": incident_data.get("mitre_technique_name"),
             },
         )
     response_action_event = build_realtime_event(
@@ -378,6 +436,8 @@ async def _process_alert_artifacts(alert_context: dict) -> dict:
         "response_action_id": str(response_action_result.inserted_id),
         "campaign_detected": campaign_result.get("campaign_detected", False),
     }
+    if correlation_result is not None:
+        result["correlation_id"] = correlation_result["correlation_id"]
     if incident_result is not None:
         result["incident_id"] = str(incident_result.inserted_id)
     return result
@@ -401,6 +461,16 @@ async def ingest_log(
             log_context["mitre_tactic"] = matched_rule["mitre_tactic"]
         if matched_rule.get("mitre_technique"):
             log_context["mitre_technique"] = matched_rule["mitre_technique"]
+        for field in (
+            "mitre_tactic_id",
+            "mitre_tactic_name",
+            "mitre_technique_id",
+            "mitre_technique_name",
+            "mitre_subtechnique_id",
+            "mitre_subtechnique_name",
+        ):
+            if matched_rule.get(field):
+                log_context[field] = matched_rule[field]
 
     log_id = await _store_log(log_context)
 

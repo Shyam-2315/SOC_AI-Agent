@@ -4,19 +4,27 @@ import { Bell, Search, LogOut, ChevronDown } from "lucide-react";
 import { backend, getTokenClaims, setToken } from "@/lib/api";
 import { canQueryBackend, textOf } from "@/lib/presentation";
 import { useState } from "react";
+import { useMounted } from "@/hooks/use-mounted";
 
 export function Topbar() {
   const navigate = useNavigate();
   const [open, setOpen] = useState(false);
-  const claims = getTokenClaims();
+  const mounted = useMounted();
+  const claims = mounted ? getTokenClaims() : null;
   const organization = useQuery({
     queryKey: ["topbar", "organization"],
     queryFn: backend.organization,
-    enabled: canQueryBackend(),
+    enabled: mounted && canQueryBackend(),
   });
   const orgName = textOf(organization.data?.name, "Current organization");
   const email = textOf(claims?.email, "signed-in user");
-  const apiState = organization.isLoading ? "checking" : organization.error ? "error" : "connected";
+  const apiState = !mounted
+    ? "checking"
+    : organization.isLoading
+      ? "checking"
+      : organization.error
+        ? "error"
+        : "connected";
 
   function logout() {
     setToken(null);

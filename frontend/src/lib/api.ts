@@ -55,25 +55,55 @@ export type AlertRecord = BackendDocument & {
   threat_label?: string;
   mitre_tactic?: string;
   mitre_technique?: string;
+  mitre_tactic_id?: string | null;
+  mitre_tactic_name?: string | null;
+  mitre_technique_id?: string | null;
+  mitre_technique_name?: string | null;
+  mitre_subtechnique_id?: string | null;
+  mitre_subtechnique_name?: string | null;
+  correlation_id?: string | null;
   matched_rule_id?: string | null;
   matched_rule_name?: string | null;
   timestamp?: string;
 };
 
 export type IncidentRecord = BackendDocument & {
+  incident_id?: string | null;
   alert_id?: string;
   title?: string;
   description?: string;
   severity?: string;
   status?: string;
   assigned_to?: string | null;
+  assigned_to_user_id?: string | null;
+  assigned_to_email?: string | null;
+  investigation_notes?: string | null;
+  investigation_summary?: string | null;
+  notes?: string | null;
+  mitre_tactic_id?: string | null;
+  mitre_tactic_name?: string | null;
+  mitre_technique_id?: string | null;
+  mitre_technique_name?: string | null;
+  attack_stage?: string | null;
+  correlation_id?: string | null;
+  correlation_score?: number | null;
+  related_alert_ids?: string[];
+  related_alerts?: AlertRecord[];
+  related_hosts?: string[];
+  related_ips?: string[];
+  mitre_mappings?: MitreMapping[];
+  soar_actions?: SoarActionRecord[];
+  timeline_events?: ThreatTimelineRecord[];
+  correlation?: CorrelationGroupRecord | null;
   created_by?: string;
   timestamp?: string;
   updated_at?: string;
 };
 
 export type SoarActionRecord = BackendDocument & {
+  incident_id?: string;
   alert_id?: string;
+  log_id?: string;
   event_type?: string;
   severity?: string;
   ip_address?: string;
@@ -91,6 +121,12 @@ export type DetectionRuleRecord = BackendDocument & {
   conditions: RuleCondition[];
   mitre_tactic?: string | null;
   mitre_technique?: string | null;
+  mitre_tactic_id?: string | null;
+  mitre_tactic_name?: string | null;
+  mitre_technique_id?: string | null;
+  mitre_technique_name?: string | null;
+  mitre_subtechnique_id?: string | null;
+  mitre_subtechnique_name?: string | null;
   pack_id?: string | null;
   enabled: boolean;
   created_at?: string;
@@ -125,7 +161,7 @@ export type StarterPackRecord = {
 
 export type CollectorRecord = BackendDocument & {
   name: string;
-  type: "linux" | "windows" | "firewall" | "cloud" | "custom";
+  type: "linux" | "windows" | "syslog" | "firewall" | "cloud" | "custom";
   status: "active" | "disabled";
   last_seen_at?: string | null;
   created_at?: string;
@@ -161,14 +197,56 @@ export type ThreatStatistics = {
   critical_alerts: number;
   malware_alerts: number;
   ransomware_alerts: number;
+  mitre_tactic_breakdown?: Record<string, number>;
+  top_attacked_hosts?: Record<string, number>;
+  top_attack_techniques?: Record<string, number>;
+  attack_severity_distribution?: Record<string, number>;
+  recent_attack_chains?: CorrelationGroupRecord[];
 };
 
 export type ThreatTimelineRecord = {
+  alert_id?: string;
   event_type?: string;
+  message?: string;
   severity?: string;
   source?: string;
   ip_address?: string;
+  host?: string;
+  attack_stage?: string;
+  mitre?: MitreMapping;
   timestamp?: string;
+};
+
+export type MitreMapping = {
+  tactic_id?: string | null;
+  tactic_name?: string | null;
+  technique_id?: string | null;
+  technique_name?: string | null;
+  subtechnique_id?: string | null;
+  subtechnique_name?: string | null;
+};
+
+export type CorrelationGroupRecord = BackendDocument & {
+  correlation_id?: string;
+  incident_id?: string | null;
+  correlation_score?: number;
+  attack_stage?: string;
+  related_alert_ids?: string[];
+  related_hosts?: string[];
+  related_ips?: string[];
+  mitre_tactics?: string[];
+  mitre_techniques?: string[];
+  summary?: string;
+  updated_at?: string;
+};
+
+export type IncidentTimelineResponse = {
+  incident_id: string;
+  summary?: string;
+  correlation?: CorrelationGroupRecord | null;
+  correlated_hosts: string[];
+  correlated_ips: string[];
+  events: ThreatTimelineRecord[];
 };
 
 export type CampaignsResponse = {
@@ -368,6 +446,16 @@ export function entityId(record: BackendDocument): string {
   return String(record.id ?? record._id ?? "");
 }
 
+export function incidentRecordId(
+  record: BackendDocument & { incident_id?: string | null },
+): string {
+  return stringId(record.id) || stringId(record._id) || stringId(record.incident_id);
+}
+
+function stringId(value: unknown): string {
+  return value === null || value === undefined || value === "" ? "" : String(value);
+}
+
 export class ApiError extends Error {
   status: number;
   body?: unknown;
@@ -482,6 +570,7 @@ export const backend = {
     api<Paginated<AlertRecord>>(withQuery("/alerts/", params)),
   incidents: (params?: { limit?: number; offset?: number }) =>
     api<Paginated<IncidentRecord>>(withQuery("/incidents/", params)),
+  incident: (id: string) => api<IncidentRecord>(`/incidents/${id}`),
   createIncident: (payload: {
     title: string;
     description: string;
@@ -492,14 +581,26 @@ export const backend = {
       method: "POST",
       body: JSON.stringify(payload),
     }),
-  updateIncident: (id: string, status: string) =>
+  updateIncident: (
+    id: string,
+    statusOrPayload:
+      | string
+      | {
+          status?: string;
+          assigned_to_user_id?: string | null;
+          assigned_to_email?: string | null;
+          investigation_notes?: string | null;
+        },
+  ) =>
     api<{ message: string }>(`/incidents/${id}`, {
       method: "PATCH",
-      body: JSON.stringify({ status }),
+      body: JSON.stringify(
+        typeof statusOrPayload === "string" ? { status: statusOrPayload } : statusOrPayload,
+      ),
     }),
   logs: (params?: { limit?: number; offset?: number }) =>
     api<Paginated<LogRecord>>(withQuery("/logs/", params)),
-  soarActions: (params?: { limit?: number; offset?: number }) =>
+  soarActions: (params?: { limit?: number; offset?: number; incident_id?: string }) =>
     api<Paginated<SoarActionRecord>>(withQuery("/soar/actions", params)),
   blockedIps: () => api<{ blocked_ips: string[] }>("/soar/blocked-ips"),
   playbook: (eventType: string) =>
@@ -509,6 +610,8 @@ export const backend = {
   threatStatistics: () => api<ThreatStatistics>("/threat-hunting/statistics"),
   threatTimeline: (params?: { limit?: number; offset?: number }) =>
     api<Paginated<ThreatTimelineRecord>>(withQuery("/threat-hunting/timeline", params)),
+  incidentTimeline: (incidentId: string) =>
+    api<IncidentTimelineResponse>(`/threat-hunting/timeline/${incidentId}`),
   threatCampaigns: (params?: { limit?: number; offset?: number }) =>
     api<CampaignsResponse>(withQuery("/threat-hunting/campaigns", params)),
   rules: (params?: { limit?: number; offset?: number }) =>

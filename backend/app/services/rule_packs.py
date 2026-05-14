@@ -9,6 +9,7 @@ from app.common.mongo import paginated_response, parse_object_id, serialize_docu
 from app.common.pagination import Pagination
 from app.db.client import detection_rule_packs_collection, detection_rules_collection
 from app.schemas.rule import DetectionRuleCreate
+from app.services.rules import MITRE_FIELDS, normalize_mitre_metadata
 from app.schemas.rule_pack import DetectionPackCreate, DetectionPackUpdate
 from app.services.audit import write_audit_event
 
@@ -94,6 +95,56 @@ STARTER_PACKS: dict[str, dict[str, Any]] = {
                 "detection": {"selection": {"message|contains": "privilege escalation"}},
                 "tags": ["attack.privilege_escalation", "attack.t1068"],
             }
+        ],
+    },
+    "mitre_starter_mappings": {
+        "name": "MITRE Starter Mappings",
+        "description": "Starter ATT&CK mappings for Windows, Linux and syslog telemetry.",
+        "category": "mitre",
+        "version": "1.0.0",
+        "rules": [
+            {
+                "title": "Windows failed login",
+                "description": "Windows authentication failure events.",
+                "level": "medium",
+                "event_type": "windows_failed_login",
+                "detection": {"selection": {"message|contains": "failed"}},
+            },
+            {
+                "title": "Linux SSH failed login",
+                "description": "Linux SSH authentication failure events.",
+                "level": "medium",
+                "event_type": "linux_ssh_failed_login",
+                "detection": {"selection": {"message|contains": "failed"}},
+            },
+            {
+                "title": "Linux sudo failure",
+                "description": "Linux sudo failure events.",
+                "level": "high",
+                "event_type": "linux_sudo_failure",
+                "detection": {"selection": {"message|contains": "sudo"}},
+            },
+            {
+                "title": "Windows process execution",
+                "description": "Windows process execution events.",
+                "level": "medium",
+                "event_type": "windows_process_execution",
+                "detection": {"selection": {"message|contains": "process"}},
+            },
+            {
+                "title": "Linux suspicious process",
+                "description": "Linux suspicious process execution events.",
+                "level": "high",
+                "event_type": "linux_suspicious_process",
+                "detection": {"selection": {"message|contains": "suspicious"}},
+            },
+            {
+                "title": "Syslog event",
+                "description": "Generic syslog event mapping for discovery activity.",
+                "level": "low",
+                "event_type": "syslog_event",
+                "detection": {"selection": {"message|contains": "syslog"}},
+            },
         ],
     },
 }
@@ -218,6 +269,8 @@ def _rule_payload_from_import(rule: dict[str, Any]) -> DetectionRuleCreate:
         "mitre_technique": rule.get("mitre_technique") or mitre_technique,
         "enabled": bool(rule.get("enabled", True)),
     }
+    payload.update({field: rule.get(field) for field in MITRE_FIELDS if rule.get(field)})
+    payload.update(normalize_mitre_metadata(payload))
     try:
         return DetectionRuleCreate.model_validate(payload)
     except Exception as exc:
@@ -370,6 +423,7 @@ async def _insert_imported_rules(
     now = datetime.now(timezone.utc)
     documents = []
     for rule in imported_rules:
+        mitre = normalize_mitre_metadata(rule.model_dump())
         documents.append(
             {
                 "name": rule.name,
@@ -377,8 +431,14 @@ async def _insert_imported_rules(
                 "severity": rule.severity,
                 "event_type": rule.event_type,
                 "conditions": [condition.model_dump() for condition in rule.conditions],
-                "mitre_tactic": rule.mitre_tactic,
-                "mitre_technique": rule.mitre_technique,
+                "mitre_tactic": mitre.get("mitre_tactic"),
+                "mitre_technique": mitre.get("mitre_technique"),
+                "mitre_tactic_id": mitre.get("mitre_tactic_id"),
+                "mitre_tactic_name": mitre.get("mitre_tactic_name"),
+                "mitre_technique_id": mitre.get("mitre_technique_id"),
+                "mitre_technique_name": mitre.get("mitre_technique_name"),
+                "mitre_subtechnique_id": mitre.get("mitre_subtechnique_id"),
+                "mitre_subtechnique_name": mitre.get("mitre_subtechnique_name"),
                 "pack_id": pack_id,
                 "enabled": pack_enabled and rule.enabled,
                 "organization_id": user["organization_id"],
@@ -504,6 +564,10 @@ def _export_rule(rule: dict[str, Any]) -> dict[str, Any]:
         tags.append("attack." + str(rule["mitre_tactic"]).lower().replace(" ", "_"))
     if rule.get("mitre_technique"):
         tags.append("attack." + str(rule["mitre_technique"]).lower())
+    if rule.get("mitre_tactic_id"):
+        tags.append("attack." + str(rule["mitre_tactic_id"]).lower())
+    if rule.get("mitre_technique_id"):
+        tags.append("attack." + str(rule["mitre_technique_id"]).lower())
     selection = {}
     for condition in rule.get("conditions", []):
         key = condition["field"]
@@ -521,4 +585,10 @@ def _export_rule(rule: dict[str, Any]) -> dict[str, Any]:
         },
         "enabled": rule.get("enabled", True),
         "tags": tags,
+        "mitre_tactic_id": rule.get("mitre_tactic_id"),
+        "mitre_tactic_name": rule.get("mitre_tactic_name"),
+        "mitre_technique_id": rule.get("mitre_technique_id"),
+        "mitre_technique_name": rule.get("mitre_technique_name"),
+        "mitre_subtechnique_id": rule.get("mitre_subtechnique_id"),
+        "mitre_subtechnique_name": rule.get("mitre_subtechnique_name"),
     }

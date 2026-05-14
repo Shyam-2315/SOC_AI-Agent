@@ -22,22 +22,117 @@ SEVERITY_RANK = {
 }
 
 
+STARTER_MITRE_MAPPINGS: dict[str, dict[str, str]] = {
+    "windows_failed_login": {
+        "mitre_tactic_id": "TA0006",
+        "mitre_tactic_name": "Credential Access",
+        "mitre_technique_id": "T1110",
+        "mitre_technique_name": "Brute Force",
+    },
+    "linux_ssh_failed_login": {
+        "mitre_tactic_id": "TA0006",
+        "mitre_tactic_name": "Credential Access",
+        "mitre_technique_id": "T1110",
+        "mitre_technique_name": "Brute Force",
+    },
+    "ssh_attack": {
+        "mitre_tactic_id": "TA0006",
+        "mitre_tactic_name": "Credential Access",
+        "mitre_technique_id": "T1110",
+        "mitre_technique_name": "Brute Force",
+    },
+    "linux_sudo_failure": {
+        "mitre_tactic_id": "TA0004",
+        "mitre_tactic_name": "Privilege Escalation",
+        "mitre_technique_id": "T1548.003",
+        "mitre_technique_name": "Sudo and Sudo Caching",
+    },
+    "windows_process_execution": {
+        "mitre_tactic_id": "TA0002",
+        "mitre_tactic_name": "Execution",
+        "mitre_technique_id": "T1059",
+        "mitre_technique_name": "Command and Scripting Interpreter",
+    },
+    "linux_suspicious_process": {
+        "mitre_tactic_id": "TA0002",
+        "mitre_tactic_name": "Execution",
+        "mitre_technique_id": "T1059.004",
+        "mitre_technique_name": "Unix Shell",
+    },
+    "syslog_event": {
+        "mitre_tactic_id": "TA0007",
+        "mitre_tactic_name": "Discovery",
+        "mitre_technique_id": "T1082",
+        "mitre_technique_name": "System Information Discovery",
+    },
+}
+
+MITRE_FIELDS = (
+    "mitre_tactic_id",
+    "mitre_tactic_name",
+    "mitre_technique_id",
+    "mitre_technique_name",
+    "mitre_subtechnique_id",
+    "mitre_subtechnique_name",
+)
+
+
+def normalize_mitre_metadata(data: dict[str, Any]) -> dict[str, Any]:
+    event_type = data.get("event_type")
+    metadata = dict(STARTER_MITRE_MAPPINGS.get(str(event_type or "").lower(), {}))
+
+    if data.get("mitre_tactic") and not metadata.get("mitre_tactic_name"):
+        metadata["mitre_tactic_name"] = data["mitre_tactic"]
+    if data.get("mitre_technique") and not metadata.get("mitre_technique_id"):
+        technique = str(data["mitre_technique"])
+        technique_id, _, technique_name = technique.partition(" - ")
+        metadata["mitre_technique_id"] = technique_id
+        if technique_name:
+            metadata["mitre_technique_name"] = technique_name
+
+    for field in MITRE_FIELDS:
+        if data.get(field):
+            metadata[field] = data[field]
+
+    if metadata.get("mitre_tactic_name") and not data.get("mitre_tactic"):
+        metadata["mitre_tactic"] = metadata["mitre_tactic_name"]
+    else:
+        metadata["mitre_tactic"] = data.get("mitre_tactic")
+
+    if metadata.get("mitre_technique_id") and metadata.get("mitre_technique_name"):
+        metadata["mitre_technique"] = (
+            f"{metadata['mitre_technique_id']} - {metadata['mitre_technique_name']}"
+        )
+    else:
+        metadata["mitre_technique"] = data.get("mitre_technique")
+
+    return metadata
+
+
 def _serialize_rule(rule: dict) -> dict:
     serialized = serialize_document(rule)
     serialized["id"] = serialized.pop("_id")
+    serialized.update(normalize_mitre_metadata(serialized))
     return serialized
 
 
 async def create_rule(rule: DetectionRuleCreate, user: dict) -> dict:
     now = datetime.now(timezone.utc)
+    mitre = normalize_mitre_metadata(rule.model_dump())
     document = {
         "name": rule.name,
         "description": rule.description,
         "severity": rule.severity,
         "event_type": rule.event_type,
         "conditions": [condition.model_dump() for condition in rule.conditions],
-        "mitre_tactic": rule.mitre_tactic,
-        "mitre_technique": rule.mitre_technique,
+        "mitre_tactic": mitre.get("mitre_tactic"),
+        "mitre_technique": mitre.get("mitre_technique"),
+        "mitre_tactic_id": mitre.get("mitre_tactic_id"),
+        "mitre_tactic_name": mitre.get("mitre_tactic_name"),
+        "mitre_technique_id": mitre.get("mitre_technique_id"),
+        "mitre_technique_name": mitre.get("mitre_technique_name"),
+        "mitre_subtechnique_id": mitre.get("mitre_subtechnique_id"),
+        "mitre_subtechnique_name": mitre.get("mitre_subtechnique_name"),
         "pack_id": rule.pack_id,
         "enabled": rule.enabled,
         "organization_id": user["organization_id"],
@@ -89,6 +184,8 @@ async def update_rule(rule_id: str, update: DetectionRuleUpdate, user: dict) -> 
         update_data["conditions"] = [
             condition.model_dump() for condition in update.conditions or []
         ]
+    if any(field in update_data for field in (*MITRE_FIELDS, "mitre_tactic", "mitre_technique", "event_type")):
+        update_data.update(normalize_mitre_metadata(update_data))
     if not update_data:
         raise HTTPException(status_code=400, detail="No updates provided")
     update_data["updated_at"] = datetime.now(timezone.utc)
@@ -172,6 +269,7 @@ async def evaluate_rules(log_context: dict) -> Optional[dict]:
             },
         )
         if _rule_matches(log_context, rule):
+            mitre = normalize_mitre_metadata(rule)
             logger.info(
                 "detection rule matched",
                 extra={
@@ -185,7 +283,13 @@ async def evaluate_rules(log_context: dict) -> Optional[dict]:
                 "id": str(rule["_id"]),
                 "name": rule["name"],
                 "severity": rule["severity"],
-                "mitre_tactic": rule.get("mitre_tactic"),
-                "mitre_technique": rule.get("mitre_technique"),
+                "mitre_tactic": mitre.get("mitre_tactic"),
+                "mitre_technique": mitre.get("mitre_technique"),
+                "mitre_tactic_id": mitre.get("mitre_tactic_id"),
+                "mitre_tactic_name": mitre.get("mitre_tactic_name"),
+                "mitre_technique_id": mitre.get("mitre_technique_id"),
+                "mitre_technique_name": mitre.get("mitre_technique_name"),
+                "mitre_subtechnique_id": mitre.get("mitre_subtechnique_id"),
+                "mitre_subtechnique_name": mitre.get("mitre_subtechnique_name"),
             }
     return None

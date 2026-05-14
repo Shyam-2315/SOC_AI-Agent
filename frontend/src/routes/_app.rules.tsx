@@ -33,6 +33,10 @@ function newRule(): DetectionRuleRecord {
     conditions: [{ field: "message", operator: "contains", value: "failed login" }],
     mitre_tactic: "Credential Access",
     mitre_technique: "T1110",
+    mitre_tactic_id: "TA0006",
+    mitre_tactic_name: "Credential Access",
+    mitre_technique_id: "T1110",
+    mitre_technique_name: "Brute Force",
     enabled: true,
   };
 }
@@ -46,6 +50,12 @@ function rulePayload(rule: DetectionRuleRecord) {
     conditions: rule.conditions,
     mitre_tactic: rule.mitre_tactic || undefined,
     mitre_technique: rule.mitre_technique || undefined,
+    mitre_tactic_id: rule.mitre_tactic_id || undefined,
+    mitre_tactic_name: rule.mitre_tactic_name || undefined,
+    mitre_technique_id: rule.mitre_technique_id || undefined,
+    mitre_technique_name: rule.mitre_technique_name || undefined,
+    mitre_subtechnique_id: rule.mitre_subtechnique_id || undefined,
+    mitre_subtechnique_name: rule.mitre_subtechnique_name || undefined,
     pack_id: rule.pack_id || undefined,
     enabled: rule.enabled,
   };
@@ -137,6 +147,14 @@ function RulesPage() {
                 <div className="mt-1 font-mono text-[11px] text-muted-foreground">
                   {textOf(rule.event_type, "any event")} · {rule.conditions.length} conditions
                 </div>
+                <div className="mt-2 flex flex-wrap gap-1.5">
+                  <span className="rounded-md border border-primary/30 bg-primary/10 px-2 py-0.5 font-mono text-[11px] text-primary">
+                    {textOf(rule.mitre_tactic_id, textOf(rule.mitre_tactic_name, "TA"))}
+                  </span>
+                  <span className="rounded-md border border-border px-2 py-0.5 font-mono text-[11px] text-muted-foreground">
+                    {textOf(rule.mitre_technique_id, textOf(rule.mitre_technique, "Technique"))}
+                  </span>
+                </div>
               </div>
               <div className="flex items-center gap-2">
                 <Btn size="sm" variant="outline" onClick={() => setEditing(rule)}>
@@ -225,6 +243,65 @@ function RuleEditor({
               className="inp"
             />
           </Field>
+          <div className="grid gap-3 sm:grid-cols-2">
+            <Field label="MITRE tactic ID">
+              <input
+                value={draft.mitre_tactic_id ?? ""}
+                onChange={(e) => setDraft({ ...draft, mitre_tactic_id: e.target.value || null })}
+                className="inp"
+                placeholder="TA0006"
+              />
+            </Field>
+            <Field label="MITRE tactic name">
+              <input
+                value={draft.mitre_tactic_name ?? draft.mitre_tactic ?? ""}
+                onChange={(e) => {
+                  const value = e.target.value || null;
+                  setDraft({ ...draft, mitre_tactic_name: value, mitre_tactic: value });
+                }}
+                className="inp"
+                placeholder="Credential Access"
+              />
+            </Field>
+            <Field label="MITRE technique ID">
+              <input
+                value={draft.mitre_technique_id ?? ""}
+                onChange={(e) => setDraft({ ...draft, mitre_technique_id: e.target.value || null })}
+                className="inp"
+                placeholder="T1110"
+              />
+            </Field>
+            <Field label="MITRE technique name">
+              <input
+                value={draft.mitre_technique_name ?? ""}
+                onChange={(e) =>
+                  setDraft({ ...draft, mitre_technique_name: e.target.value || null })
+                }
+                className="inp"
+                placeholder="Brute Force"
+              />
+            </Field>
+            <Field label="MITRE subtechnique ID">
+              <input
+                value={draft.mitre_subtechnique_id ?? ""}
+                onChange={(e) =>
+                  setDraft({ ...draft, mitre_subtechnique_id: e.target.value || null })
+                }
+                className="inp"
+                placeholder="Optional"
+              />
+            </Field>
+            <Field label="MITRE subtechnique name">
+              <input
+                value={draft.mitre_subtechnique_name ?? ""}
+                onChange={(e) =>
+                  setDraft({ ...draft, mitre_subtechnique_name: e.target.value || null })
+                }
+                className="inp"
+                placeholder="Optional"
+              />
+            </Field>
+          </div>
           <div>
             <div className="mb-2 text-xs font-medium uppercase tracking-wider text-muted-foreground">
               Conditions

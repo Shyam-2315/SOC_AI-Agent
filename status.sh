@@ -50,7 +50,7 @@ compose ps
 
 echo
 echo "Service health:"
-for service in mongo redis app celery-worker nginx frontend; do
+for service in mongo redis app celery-worker syslog-receiver nginx frontend; do
   service_state "$service"
 done
 

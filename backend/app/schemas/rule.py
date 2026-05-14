@@ -28,6 +28,12 @@ class DetectionRuleCreate(APIModel):
     conditions: list[RuleCondition] = Field(min_length=1, max_length=20)
     mitre_tactic: Optional[str] = Field(default=None, max_length=120)
     mitre_technique: Optional[str] = Field(default=None, max_length=180)
+    mitre_tactic_id: Optional[str] = Field(default=None, max_length=20)
+    mitre_tactic_name: Optional[str] = Field(default=None, max_length=120)
+    mitre_technique_id: Optional[str] = Field(default=None, max_length=20)
+    mitre_technique_name: Optional[str] = Field(default=None, max_length=180)
+    mitre_subtechnique_id: Optional[str] = Field(default=None, max_length=30)
+    mitre_subtechnique_name: Optional[str] = Field(default=None, max_length=180)
     pack_id: Optional[str] = Field(default=None, max_length=64)
     enabled: bool = True
 
@@ -45,6 +51,12 @@ class DetectionRuleUpdate(APIModel):
     conditions: Optional[list[RuleCondition]] = Field(default=None, min_length=1, max_length=20)
     mitre_tactic: Optional[str] = Field(default=None, max_length=120)
     mitre_technique: Optional[str] = Field(default=None, max_length=180)
+    mitre_tactic_id: Optional[str] = Field(default=None, max_length=20)
+    mitre_tactic_name: Optional[str] = Field(default=None, max_length=120)
+    mitre_technique_id: Optional[str] = Field(default=None, max_length=20)
+    mitre_technique_name: Optional[str] = Field(default=None, max_length=180)
+    mitre_subtechnique_id: Optional[str] = Field(default=None, max_length=30)
+    mitre_subtechnique_name: Optional[str] = Field(default=None, max_length=180)
     pack_id: Optional[str] = Field(default=None, max_length=64)
     enabled: Optional[bool] = None
 
@@ -63,6 +75,12 @@ class DetectionRuleResponse(APIModel):
     conditions: list[dict[str, Any]]
     mitre_tactic: Optional[str] = None
     mitre_technique: Optional[str] = None
+    mitre_tactic_id: Optional[str] = None
+    mitre_tactic_name: Optional[str] = None
+    mitre_technique_id: Optional[str] = None
+    mitre_technique_name: Optional[str] = None
+    mitre_subtechnique_id: Optional[str] = None
+    mitre_subtechnique_name: Optional[str] = None
     pack_id: Optional[str] = None
     enabled: bool
     organization_id: str

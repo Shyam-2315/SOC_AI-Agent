@@ -4,6 +4,7 @@ from app.api.dependencies import Pagination, pagination_params, require_permissi
 from app.schemas.incident import IncidentCreate, IncidentUpdate
 from app.services.incidents import (
     create_incident,
+    get_incident,
     list_incidents,
     update_incident_status,
 )
@@ -29,6 +30,14 @@ async def get_incidents(
     user=Depends(require_permission("incidents:read")),
 ):
     return await list_incidents(user["organization_id"], pagination)
+
+
+@router.get("/{incident_id}")
+async def get_incident_endpoint(
+    incident_id: str,
+    user=Depends(require_permission("incidents:read")),
+):
+    return await get_incident(incident_id, user["organization_id"])
 
 
 @router.patch("/{incident_id}")

@@ -1,13 +1,24 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
-import { Bell, AlertOctagon, Zap, Radio, Activity, ShieldCheck, ArrowRight } from "lucide-react";
+import {
+  Bell,
+  AlertOctagon,
+  Zap,
+  Radio,
+  Activity,
+  ShieldCheck,
+  ArrowRight,
+  RefreshCw,
+} from "lucide-react";
 import { StatCard } from "@/components/soc/StatCard";
 import { PageHeader } from "@/components/soc/PageHeader";
 import { SeverityBadge, StatusBadge } from "@/components/soc/SeverityBadge";
 import { Btn } from "@/components/soc/Btn";
+import { ClientTime } from "@/components/soc/ClientOnly";
 import { EmptyState, ErrorState, LoadingState } from "@/components/soc/States";
 import { backend, entityId, type AlertRecord, type IncidentRecord } from "@/lib/api";
-import { canQueryBackend, dateTimeOf, severityOf, textOf, timeOf } from "@/lib/presentation";
+import { POLL_INTERVALS } from "@/lib/live-data";
+import { canQueryBackend, severityOf, textOf } from "@/lib/presentation";
 
 export const Route = createFileRoute("/_app/dashboard")({
   head: () => ({ meta: [{ title: "Dashboard — SentinelAI" }] }),
@@ -26,6 +37,18 @@ function tacticCounts(alerts: AlertRecord[]) {
     .slice(0, 8);
 }
 
+function topCounts(values: Array<string | undefined | null>, limit = 5) {
+  const counts = new Map<string, number>();
+  for (const value of values) {
+    const label = textOf(value, "Unknown");
+    counts.set(label, (counts.get(label) ?? 0) + 1);
+  }
+  return Array.from(counts.entries())
+    .map(([name, count]) => ({ name, count }))
+    .sort((a, b) => b.count - a.count)
+    .slice(0, limit);
+}
+
 function campaignLabel(campaign: unknown, index: number): string {
   if (campaign && typeof campaign === "object") {
     const fields = campaign as Record<string, unknown>;
@@ -40,31 +63,37 @@ function Dashboard() {
     queryKey: ["dashboard", "alerts"],
     queryFn: () => backend.alerts({ limit: 100 }),
     enabled,
+    refetchInterval: POLL_INTERVALS.dashboard,
   });
   const incidents = useQuery({
     queryKey: ["dashboard", "incidents"],
     queryFn: () => backend.incidents({ limit: 100 }),
     enabled,
+    refetchInterval: POLL_INTERVALS.dashboard,
   });
   const actions = useQuery({
     queryKey: ["dashboard", "soar-actions"],
     queryFn: () => backend.soarActions({ limit: 100 }),
     enabled,
+    refetchInterval: POLL_INTERVALS.dashboard,
   });
   const collectors = useQuery({
     queryKey: ["dashboard", "collectors"],
     queryFn: () => backend.collectors({ limit: 100 }),
     enabled,
+    refetchInterval: POLL_INTERVALS.dashboard,
   });
   const stats = useQuery({
     queryKey: ["dashboard", "threat-statistics"],
     queryFn: backend.threatStatistics,
     enabled,
+    refetchInterval: POLL_INTERVALS.dashboard,
   });
   const campaigns = useQuery({
     queryKey: ["dashboard", "campaigns"],
     queryFn: () => backend.threatCampaigns({ limit: 100 }),
     enabled,
+    refetchInterval: POLL_INTERVALS.dashboard,
   });
 
   const queries = [alerts, incidents, actions, collectors, stats, campaigns];
@@ -87,20 +116,46 @@ function Dashboard() {
   );
   const activeCollectors = collectorItems.filter((c) => c.status === "active");
   const tactics = tacticCounts(alertItems);
+  const topHosts = topCounts(alertItems.map((alert) => alert.source));
+  const topTechniques = topCounts(
+    alertItems.map(
+      (alert) => alert.mitre_technique_id ?? alert.mitre_technique_name ?? alert.mitre_technique,
+    ),
+  );
+  const severityDistribution = topCounts(alertItems.map((alert) => alert.severity));
   const maxTacticCount = Math.max(1, ...tactics.map((t) => t.count));
+  const recentChains = stats.data?.recent_attack_chains ?? [];
+  const isRefreshing = queries.some((q) => q.isFetching);
+  const lastUpdatedAt = Math.max(...queries.map((q) => q.dataUpdatedAt));
+  const refreshDashboard = () => {
+    queries.forEach((query) => query.refetch());
+  };
 
   return (
     <div className="space-y-6">
       <PageHeader
         eyebrow="Operations"
         title="SOC Overview"
-        description="Live posture across detections, incidents and automated response."
+        description={
+          <span className="flex flex-col gap-1">
+            <span>Live posture across detections, incidents and automated response.</span>
+            <span>
+              Last updated: <ClientTime value={lastUpdatedAt} />
+            </span>
+          </span>
+        }
         actions={
-          <Link to="/hunting">
-            <Btn variant="outline" size="sm">
-              Start hunt <ArrowRight className="h-4 w-4" />
+          <>
+            <Btn variant="outline" size="sm" onClick={refreshDashboard} disabled={isRefreshing}>
+              <RefreshCw className={`h-4 w-4 ${isRefreshing ? "animate-spin" : ""}`} />
+              Refresh
             </Btn>
-          </Link>
+            <Link to="/hunting">
+              <Btn variant="outline" size="sm">
+                Start hunt <ArrowRight className="h-4 w-4" />
+              </Btn>
+            </Link>
+          </>
         }
       />
 
@@ -184,7 +239,9 @@ function Dashboard() {
                       {textOf(alert.ip_address)}
                     </div>
                   </div>
-                  <div className="text-xs text-muted-foreground">{timeOf(alert.timestamp)}</div>
+                  <div className="text-xs text-muted-foreground">
+                    <ClientTime value={alert.timestamp} />
+                  </div>
                 </li>
               ))
             )}
@@ -261,29 +318,76 @@ function Dashboard() {
 
         <div className="rounded-xl border border-border bg-card shadow-card">
           <div className="border-b border-border px-5 py-3 text-sm font-semibold">
-            Threat campaigns
+            Recent attack chains
           </div>
           <ul className="divide-y divide-border">
-            {(campaigns.data?.detected_campaigns ?? []).slice(0, 5).map((campaign, index) => (
-              <li key={index} className="px-5 py-3">
-                <div className="flex items-center justify-between gap-2">
-                  <div>
-                    <div className="text-sm font-medium">{campaignLabel(campaign, index)}</div>
-                    <div className="text-xs text-muted-foreground">
-                      Detected from correlated backend alerts
+            {(recentChains.length ? recentChains : (campaigns.data?.detected_campaigns ?? []))
+              .slice(0, 5)
+              .map((campaign, index) => (
+                <li key={index} className="px-5 py-3">
+                  <div className="flex items-center justify-between gap-2">
+                    <div>
+                      <div className="text-sm font-medium">{campaignLabel(campaign, index)}</div>
+                      <div className="text-xs text-muted-foreground">
+                        {textOf(
+                          (campaign as Record<string, unknown>)?.attack_stage,
+                          "Correlated alerts",
+                        )}
+                      </div>
                     </div>
+                    <SeverityBadge severity="high" />
                   </div>
-                  <SeverityBadge severity="high" />
-                </div>
-              </li>
-            ))}
-            {(campaigns.data?.detected_campaigns ?? []).length === 0 && (
-              <li className="px-5 py-6 text-sm text-muted-foreground">
-                No correlated campaigns detected.
-              </li>
-            )}
+                </li>
+              ))}
+            {recentChains.length === 0 &&
+              (campaigns.data?.detected_campaigns ?? []).length === 0 && (
+                <li className="px-5 py-6 text-sm text-muted-foreground">
+                  No correlated attack chains detected.
+                </li>
+              )}
           </ul>
         </div>
+      </div>
+
+      <div className="grid gap-4 lg:grid-cols-3">
+        <BreakdownPanel title="Top attacked hosts" items={topHosts} />
+        <BreakdownPanel title="Top ATT&CK techniques" items={topTechniques} />
+        <BreakdownPanel title="Severity distribution" items={severityDistribution} />
+      </div>
+    </div>
+  );
+}
+
+function BreakdownPanel({
+  title,
+  items,
+}: {
+  title: string;
+  items: { name: string; count: number }[];
+}) {
+  const max = Math.max(1, ...items.map((item) => item.count));
+  return (
+    <div className="rounded-xl border border-border bg-card p-5 shadow-card">
+      <div className="text-sm font-semibold">{title}</div>
+      <div className="mt-4 space-y-3">
+        {items.length === 0 ? (
+          <div className="text-sm text-muted-foreground">No data available.</div>
+        ) : (
+          items.map((item) => (
+            <div key={item.name}>
+              <div className="mb-1 flex items-center justify-between gap-3 text-xs">
+                <span className="truncate text-muted-foreground">{item.name}</span>
+                <span className="font-mono">{item.count}</span>
+              </div>
+              <div className="h-1.5 overflow-hidden rounded bg-border">
+                <div
+                  className="h-full bg-primary"
+                  style={{ width: `${(item.count / max) * 100}%` }}
+                />
+              </div>
+            </div>
+          ))
+        )}
       </div>
     </div>
   );

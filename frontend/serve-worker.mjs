@@ -39,14 +39,28 @@ function headersFromNode(req) {
 
 async function tryServeAsset(req, res, pathname) {
   const decoded = decodeURIComponent(pathname);
-  if (!decoded.startsWith("/assets/") && decoded !== "/.assetsignore") return false;
+  const isStaticAsset =
+    decoded.startsWith("/assets/") ||
+    decoded === "/.assetsignore" ||
+    decoded === "/favicon.svg" ||
+    decoded === "/favicon.ico";
+  if (!isStaticAsset) return false;
 
-  const candidate = path.normalize(path.join(clientDir, decoded));
-  if (!candidate.startsWith(clientDir)) return false;
+  const assetPath = decoded === "/favicon.ico" ? "/favicon.svg" : decoded;
+  const candidate = path.normalize(path.join(clientDir, assetPath));
+  if (!candidate.startsWith(clientDir)) {
+    res.writeHead(404, { "content-type": "text/plain; charset=utf-8" });
+    res.end("asset not found");
+    return true;
+  }
 
   try {
     const file = await stat(candidate);
-    if (!file.isFile()) return false;
+    if (!file.isFile()) {
+      res.writeHead(404, { "content-type": "text/plain; charset=utf-8" });
+      res.end("asset not found");
+      return true;
+    }
 
     res.writeHead(200, {
       "content-length": file.size,
@@ -60,7 +74,9 @@ async function tryServeAsset(req, res, pathname) {
     }
     return true;
   } catch {
-    return false;
+    res.writeHead(404, { "content-type": "text/plain; charset=utf-8" });
+    res.end("asset not found");
+    return true;
   }
 }
 

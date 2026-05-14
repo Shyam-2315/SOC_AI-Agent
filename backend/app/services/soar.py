@@ -1,6 +1,12 @@
-from app.common.mongo import paginated_response, serialize_document
+from fastapi import HTTPException
+
+from app.common.mongo import paginated_response, parse_object_id, serialize_document
 from app.common.pagination import Pagination
-from app.db.client import response_actions_collection
+from app.db.client import (
+    correlated_incidents_collection,
+    incidents_collection,
+    response_actions_collection,
+)
 
 
 PLAYBOOKS = {
@@ -33,8 +39,39 @@ PLAYBOOKS = {
 async def list_response_actions(
     organization_id: str,
     pagination: Pagination,
+    incident_id: str | None = None,
 ) -> dict:
     query = {"organization_id": organization_id}
+    if incident_id:
+        object_id = parse_object_id(incident_id, "incident")
+        incident = await incidents_collection.find_one(
+            {"_id": object_id, "organization_id": organization_id}
+        )
+        if not incident:
+            raise HTTPException(status_code=404, detail="Incident not found")
+
+        alert_ids = []
+        if incident.get("alert_id"):
+            alert_ids.append(str(incident["alert_id"]))
+        alert_ids.extend(str(alert_id) for alert_id in incident.get("related_alert_ids", []))
+
+        group = None
+        if incident.get("correlation_id"):
+            group = await correlated_incidents_collection.find_one(
+                {
+                    "organization_id": organization_id,
+                    "correlation_id": incident["correlation_id"],
+                }
+            )
+        if group is None:
+            group = await correlated_incidents_collection.find_one(
+                {"organization_id": organization_id, "incident_id": incident_id}
+            )
+        if group:
+            alert_ids.extend(str(alert_id) for alert_id in group.get("related_alert_ids", []))
+        alert_ids = list(dict.fromkeys(alert_ids))
+        query["$or"] = [{"incident_id": incident_id}, {"alert_id": {"$in": alert_ids}}]
+
     items = []
     cursor = (
         response_actions_collection.find(query)

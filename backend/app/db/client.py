@@ -25,6 +25,7 @@ audit_events_collection = db["audit_events"]
 detection_rules_collection = db["detection_rules"]
 detection_rule_packs_collection = db["detection_rule_packs"]
 collectors_collection = db["collectors"]
+correlated_incidents_collection = db["correlated_incidents"]
 
 
 async def ping_database() -> None:

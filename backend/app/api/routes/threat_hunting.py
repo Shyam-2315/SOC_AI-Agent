@@ -4,6 +4,7 @@ from app.api.dependencies import Pagination, pagination_params, require_permissi
 from app.services.threat_hunting import (
     attack_timeline,
     detect_campaigns,
+    incident_timeline,
     threat_statistics,
 )
 
@@ -28,6 +29,14 @@ async def attack_timeline_endpoint(
     user=Depends(require_permission("threat_hunting:read")),
 ):
     return await attack_timeline(user["organization_id"], pagination)
+
+
+@router.get("/timeline/{incident_id}")
+async def incident_timeline_endpoint(
+    incident_id: str,
+    user=Depends(require_permission("threat_hunting:read")),
+):
+    return await incident_timeline(incident_id, user["organization_id"])
 
 
 @router.get("/statistics")

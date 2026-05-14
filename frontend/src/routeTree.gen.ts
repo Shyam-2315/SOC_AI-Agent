@@ -25,6 +25,8 @@ import { Route as AppDashboardRouteImport } from './routes/_app.dashboard'
 import { Route as AppCopilotRouteImport } from './routes/_app.copilot'
 import { Route as AppCollectorsRouteImport } from './routes/_app.collectors'
 import { Route as AppAlertsRouteImport } from './routes/_app.alerts'
+import { Route as AppIncidentsIncidentIdRouteImport } from './routes/_app.incidents.$incidentId'
+import { Route as AppThreatHuntingTimelineIncidentIdRouteImport } from './routes/_app.threat-hunting.timeline.$incidentId'
 
 const LoginRoute = LoginRouteImport.update({
   id: '/login',
@@ -105,6 +107,17 @@ const AppAlertsRoute = AppAlertsRouteImport.update({
   path: '/alerts',
   getParentRoute: () => AppRoute,
 } as any)
+const AppIncidentsIncidentIdRoute = AppIncidentsIncidentIdRouteImport.update({
+  id: '/$incidentId',
+  path: '/$incidentId',
+  getParentRoute: () => AppIncidentsRoute,
+} as any)
+const AppThreatHuntingTimelineIncidentIdRoute =
+  AppThreatHuntingTimelineIncidentIdRouteImport.update({
+    id: '/threat-hunting/timeline/$incidentId',
+    path: '/threat-hunting/timeline/$incidentId',
+    getParentRoute: () => AppRoute,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -114,7 +127,7 @@ export interface FileRoutesByFullPath {
   '/copilot': typeof AppCopilotRoute
   '/dashboard': typeof AppDashboardRoute
   '/hunting': typeof AppHuntingRoute
-  '/incidents': typeof AppIncidentsRoute
+  '/incidents': typeof AppIncidentsRouteWithChildren
   '/ingest': typeof AppIngestRoute
   '/orgs': typeof AppOrgsRoute
   '/packs': typeof AppPacksRoute
@@ -122,6 +135,8 @@ export interface FileRoutesByFullPath {
   '/rules': typeof AppRulesRoute
   '/soar': typeof AppSoarRoute
   '/users': typeof AppUsersRoute
+  '/incidents/$incidentId': typeof AppIncidentsIncidentIdRoute
+  '/threat-hunting/timeline/$incidentId': typeof AppThreatHuntingTimelineIncidentIdRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -131,7 +146,7 @@ export interface FileRoutesByTo {
   '/copilot': typeof AppCopilotRoute
   '/dashboard': typeof AppDashboardRoute
   '/hunting': typeof AppHuntingRoute
-  '/incidents': typeof AppIncidentsRoute
+  '/incidents': typeof AppIncidentsRouteWithChildren
   '/ingest': typeof AppIngestRoute
   '/orgs': typeof AppOrgsRoute
   '/packs': typeof AppPacksRoute
@@ -139,6 +154,8 @@ export interface FileRoutesByTo {
   '/rules': typeof AppRulesRoute
   '/soar': typeof AppSoarRoute
   '/users': typeof AppUsersRoute
+  '/incidents/$incidentId': typeof AppIncidentsIncidentIdRoute
+  '/threat-hunting/timeline/$incidentId': typeof AppThreatHuntingTimelineIncidentIdRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -150,7 +167,7 @@ export interface FileRoutesById {
   '/_app/copilot': typeof AppCopilotRoute
   '/_app/dashboard': typeof AppDashboardRoute
   '/_app/hunting': typeof AppHuntingRoute
-  '/_app/incidents': typeof AppIncidentsRoute
+  '/_app/incidents': typeof AppIncidentsRouteWithChildren
   '/_app/ingest': typeof AppIngestRoute
   '/_app/orgs': typeof AppOrgsRoute
   '/_app/packs': typeof AppPacksRoute
@@ -158,6 +175,8 @@ export interface FileRoutesById {
   '/_app/rules': typeof AppRulesRoute
   '/_app/soar': typeof AppSoarRoute
   '/_app/users': typeof AppUsersRoute
+  '/_app/incidents/$incidentId': typeof AppIncidentsIncidentIdRoute
+  '/_app/threat-hunting/timeline/$incidentId': typeof AppThreatHuntingTimelineIncidentIdRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -177,6 +196,8 @@ export interface FileRouteTypes {
     | '/rules'
     | '/soar'
     | '/users'
+    | '/incidents/$incidentId'
+    | '/threat-hunting/timeline/$incidentId'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -194,6 +215,8 @@ export interface FileRouteTypes {
     | '/rules'
     | '/soar'
     | '/users'
+    | '/incidents/$incidentId'
+    | '/threat-hunting/timeline/$incidentId'
   id:
     | '__root__'
     | '/'
@@ -212,6 +235,8 @@ export interface FileRouteTypes {
     | '/_app/rules'
     | '/_app/soar'
     | '/_app/users'
+    | '/_app/incidents/$incidentId'
+    | '/_app/threat-hunting/timeline/$incidentId'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -334,8 +359,34 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppAlertsRouteImport
       parentRoute: typeof AppRoute
     }
+    '/_app/incidents/$incidentId': {
+      id: '/_app/incidents/$incidentId'
+      path: '/$incidentId'
+      fullPath: '/incidents/$incidentId'
+      preLoaderRoute: typeof AppIncidentsIncidentIdRouteImport
+      parentRoute: typeof AppIncidentsRoute
+    }
+    '/_app/threat-hunting/timeline/$incidentId': {
+      id: '/_app/threat-hunting/timeline/$incidentId'
+      path: '/threat-hunting/timeline/$incidentId'
+      fullPath: '/threat-hunting/timeline/$incidentId'
+      preLoaderRoute: typeof AppThreatHuntingTimelineIncidentIdRouteImport
+      parentRoute: typeof AppRoute
+    }
   }
 }
+
+interface AppIncidentsRouteChildren {
+  AppIncidentsIncidentIdRoute: typeof AppIncidentsIncidentIdRoute
+}
+
+const AppIncidentsRouteChildren: AppIncidentsRouteChildren = {
+  AppIncidentsIncidentIdRoute: AppIncidentsIncidentIdRoute,
+}
+
+const AppIncidentsRouteWithChildren = AppIncidentsRoute._addFileChildren(
+  AppIncidentsRouteChildren,
+)
 
 interface AppRouteChildren {
   AppAlertsRoute: typeof AppAlertsRoute
@@ -343,7 +394,7 @@ interface AppRouteChildren {
   AppCopilotRoute: typeof AppCopilotRoute
   AppDashboardRoute: typeof AppDashboardRoute
   AppHuntingRoute: typeof AppHuntingRoute
-  AppIncidentsRoute: typeof AppIncidentsRoute
+  AppIncidentsRoute: typeof AppIncidentsRouteWithChildren
   AppIngestRoute: typeof AppIngestRoute
   AppOrgsRoute: typeof AppOrgsRoute
   AppPacksRoute: typeof AppPacksRoute
@@ -351,6 +402,7 @@ interface AppRouteChildren {
   AppRulesRoute: typeof AppRulesRoute
   AppSoarRoute: typeof AppSoarRoute
   AppUsersRoute: typeof AppUsersRoute
+  AppThreatHuntingTimelineIncidentIdRoute: typeof AppThreatHuntingTimelineIncidentIdRoute
 }
 
 const AppRouteChildren: AppRouteChildren = {
@@ -359,7 +411,7 @@ const AppRouteChildren: AppRouteChildren = {
   AppCopilotRoute: AppCopilotRoute,
   AppDashboardRoute: AppDashboardRoute,
   AppHuntingRoute: AppHuntingRoute,
-  AppIncidentsRoute: AppIncidentsRoute,
+  AppIncidentsRoute: AppIncidentsRouteWithChildren,
   AppIngestRoute: AppIngestRoute,
   AppOrgsRoute: AppOrgsRoute,
   AppPacksRoute: AppPacksRoute,
@@ -367,6 +419,8 @@ const AppRouteChildren: AppRouteChildren = {
   AppRulesRoute: AppRulesRoute,
   AppSoarRoute: AppSoarRoute,
   AppUsersRoute: AppUsersRoute,
+  AppThreatHuntingTimelineIncidentIdRoute:
+    AppThreatHuntingTimelineIncidentIdRoute,
 }
 
 const AppRouteWithChildren = AppRoute._addFileChildren(AppRouteChildren)

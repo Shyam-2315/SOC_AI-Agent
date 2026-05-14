@@ -14,19 +14,23 @@ import {
   onWebsocketStatusChange,
 } from "@/lib/api";
 import { canQueryBackend, textOf } from "@/lib/presentation";
+import { useMounted } from "@/hooks/use-mounted";
 
 export function DebugPanel() {
   const visible = import.meta.env.DEV || isDemoMode();
-  const [lastError, setLastError] = useState(getLastApiError());
-  const [wsStatus, setWsStatus] = useState(getWebsocketStatus());
-  const claims = getTokenClaims();
+  const mounted = useMounted();
+  const [lastError, setLastError] = useState<ReturnType<typeof getLastApiError>>(() => null);
+  const [wsStatus, setWsStatus] = useState("not connected");
+  const claims = mounted ? getTokenClaims() : null;
   const organization = useQuery({
     queryKey: ["debug", "organization"],
     queryFn: backend.organization,
-    enabled: visible && canQueryBackend(),
+    enabled: visible && mounted && canQueryBackend(),
   });
 
   useEffect(() => {
+    setLastError(getLastApiError());
+    setWsStatus(getWebsocketStatus());
     const removeApi = onApiDebugChange(() => setLastError(getLastApiError()));
     const removeWs = onWebsocketStatusChange(() => setWsStatus(getWebsocketStatus()));
     return () => {
@@ -44,9 +48,9 @@ export function DebugPanel() {
       </summary>
       <div className="space-y-2 border-t border-border p-3 text-muted-foreground">
         <DebugRow label="Mode" value={isDemoMode() ? "demo" : "development"} />
-        <DebugRow label="API base" value={getApiBase()} mono />
-        <DebugRow label="WS base" value={getWsBase()} mono />
-        <DebugRow label="Token" value={getToken() ? "present" : "missing"} />
+        <DebugRow label="API base" value={mounted ? getApiBase() : "checking"} mono />
+        <DebugRow label="WS base" value={mounted ? getWsBase() : "checking"} mono />
+        <DebugRow label="Token" value={mounted && getToken() ? "present" : "missing"} />
         <DebugRow label="User" value={textOf(claims?.email, "not logged in")} mono />
         <DebugRow
           label="Org"

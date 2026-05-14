@@ -71,7 +71,7 @@ require_docker() {
 }
 
 wait_for_stack() {
-  local services=(mongo redis app celery-worker nginx frontend)
+  local services=(mongo redis app celery-worker syslog-receiver nginx frontend)
   local deadline=$((SECONDS + 240))
   echo "Waiting for services to become healthy..."
   while [ "$SECONDS" -lt "$deadline" ]; do

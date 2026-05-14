@@ -1,12 +1,14 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useMutation, useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { PageHeader } from "@/components/soc/PageHeader";
 import { Btn } from "@/components/soc/Btn";
+import { ClientDateTime } from "@/components/soc/ClientOnly";
 import { EmptyState, ErrorState, LoadingState } from "@/components/soc/States";
 import { backend, demoCollectorToken, entityId, isDemoMode, type LogRecord } from "@/lib/api";
-import { canQueryBackend, dateTimeOf, textOf } from "@/lib/presentation";
-import { Database, UploadCloud, Check } from "lucide-react";
+import { invalidateLiveData, POLL_INTERVALS } from "@/lib/live-data";
+import { canQueryBackend, textOf } from "@/lib/presentation";
+import { Database, UploadCloud, Check, RefreshCw } from "lucide-react";
 
 export const Route = createFileRoute("/_app/ingest")({
   head: () => ({ meta: [{ title: "Log Ingestion — SentinelAI" }] }),
@@ -30,6 +32,7 @@ const DEFAULT_LOG = {
 };
 
 function IngestPage() {
+  const queryClient = useQueryClient();
   const [json, setJson] = useState(JSON.stringify(DEFAULT_LOG, null, 2));
   const [collectorToken, setCollectorToken] = useState(isDemoMode() ? demoCollectorToken() : "");
   const [sent, setSent] = useState(false);
@@ -37,12 +40,14 @@ function IngestPage() {
     queryKey: ["logs"],
     queryFn: () => backend.logs({ limit: 10 }),
     enabled: canQueryBackend(),
+    refetchInterval: POLL_INTERVALS.logs,
   });
   const ingest = useMutation({
     mutationFn: (log: LogRecord) => backend.ingestCollectorBatch(collectorToken, [log]),
     onSuccess: () => {
       setSent(true);
       setTimeout(() => setSent(false), 2000);
+      invalidateLiveData(queryClient);
       logs.refetch();
     },
   });
@@ -62,6 +67,17 @@ function IngestPage() {
         eyebrow="Detection"
         title="Log Ingestion"
         description="Connected sources and ad-hoc collector-token log push for testing detections."
+        actions={
+          <Btn
+            variant="outline"
+            size="sm"
+            onClick={() => logs.refetch()}
+            disabled={logs.isFetching}
+          >
+            <RefreshCw className={`h-4 w-4 ${logs.isFetching ? "animate-spin" : ""}`} />
+            Refresh
+          </Btn>
+        }
       />
 
       <div className="grid gap-4 lg:grid-cols-3">
@@ -117,7 +133,7 @@ function IngestPage() {
                       </div>
                       <div className="mt-1 font-mono text-xs text-muted-foreground">
                         {textOf(log.source)} · {textOf(log.ip_address)} ·{" "}
-                        {dateTimeOf(log.timestamp)}
+                        <ClientDateTime value={log.timestamp} />
                       </div>
                     </li>
                   ))

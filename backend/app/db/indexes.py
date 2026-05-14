@@ -5,6 +5,7 @@ from app.db.client import (
     alert_processing_jobs_collection,
     audit_events_collection,
     collectors_collection,
+    correlated_incidents_collection,
     detection_rule_packs_collection,
     detection_rules_collection,
     incidents_collection,
@@ -106,4 +107,14 @@ async def create_indexes() -> None:
     await collectors_collection.create_index(
         [("organization_id", ASCENDING), ("name", ASCENDING)],
         unique=True,
+    )
+    await correlated_incidents_collection.create_index(
+        [("organization_id", ASCENDING), ("updated_at", DESCENDING)]
+    )
+    await correlated_incidents_collection.create_index(
+        [("organization_id", ASCENDING), ("correlation_id", ASCENDING)],
+        unique=True,
+    )
+    await correlated_incidents_collection.create_index(
+        [("organization_id", ASCENDING), ("incident_id", ASCENDING)]
     )

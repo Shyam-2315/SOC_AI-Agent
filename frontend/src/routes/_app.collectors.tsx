@@ -4,9 +4,11 @@ import { useState } from "react";
 import { PageHeader } from "@/components/soc/PageHeader";
 import { Btn } from "@/components/soc/Btn";
 import { StatusBadge } from "@/components/soc/SeverityBadge";
+import { ClientDateTime } from "@/components/soc/ClientOnly";
 import { EmptyState, ErrorState, LoadingState } from "@/components/soc/States";
 import { backend, entityId, type CollectorRecord } from "@/lib/api";
-import { canQueryBackend, dateTimeOf } from "@/lib/presentation";
+import { POLL_INTERVALS } from "@/lib/live-data";
+import { canQueryBackend } from "@/lib/presentation";
 import { Copy, Check, Plus, Trash2 } from "lucide-react";
 
 export const Route = createFileRoute("/_app/collectors")({
@@ -17,6 +19,7 @@ export const Route = createFileRoute("/_app/collectors")({
 const COLLECTOR_TYPES: CollectorRecord["type"][] = [
   "linux",
   "windows",
+  "syslog",
   "firewall",
   "cloud",
   "custom",
@@ -32,6 +35,7 @@ function CollectorsPage() {
     queryKey: ["collectors"],
     queryFn: () => backend.collectors({ limit: 100 }),
     enabled: canQueryBackend(),
+    refetchInterval: POLL_INTERVALS.collectors,
   });
   const createCollector = useMutation({
     mutationFn: () => backend.createCollector({ name: name.trim(), type }),
@@ -39,6 +43,7 @@ function CollectorsPage() {
       setToken({ name: result.collector.name, token: result.api_key });
       setName("");
       queryClient.invalidateQueries({ queryKey: ["collectors"] });
+      queryClient.invalidateQueries({ queryKey: ["dashboard", "collectors"] });
     },
   });
   const updateCollector = useMutation({
@@ -46,11 +51,17 @@ function CollectorsPage() {
       backend.updateCollector(entityId(collector), {
         status: collector.status === "active" ? "disabled" : "active",
       }),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["collectors"] }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["collectors"] });
+      queryClient.invalidateQueries({ queryKey: ["dashboard", "collectors"] });
+    },
   });
   const deleteCollector = useMutation({
     mutationFn: backend.deleteCollector,
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["collectors"] }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["collectors"] });
+      queryClient.invalidateQueries({ queryKey: ["dashboard", "collectors"] });
+    },
   });
 
   if (collectors.isLoading || collectors.isPending)
@@ -158,7 +169,7 @@ function CollectorsPage() {
               <div>
                 <div className="font-medium">{collector.name}</div>
                 <div className="text-xs text-muted-foreground">
-                  {collector.type} · last seen {dateTimeOf(collector.last_seen_at)}
+                  {collector.type} · last seen <ClientDateTime value={collector.last_seen_at} />
                 </div>
               </div>
               <div className="ml-auto flex items-center gap-3">
