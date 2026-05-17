@@ -223,6 +223,102 @@ frontend/
 - Python 3.10+ (for local backend dev)
 - Git
 
+### Clean Docker Compose Startup
+
+The root `docker-compose.yml` is the recommended new-laptop path. It starts the required development stack only: FastAPI backend, React/Vite frontend, MongoDB, and Redis.
+
+```bash
+# From the project root
+cp .env.example .env
+docker compose config
+docker compose build
+docker compose up
+```
+
+Service URLs:
+
+```text
+Backend:   http://localhost:8000
+Frontend:  http://localhost:3000
+API docs:  http://localhost:8000/docs
+MongoDB:   mongodb://localhost:27017
+Redis:     redis://localhost:6379/0
+```
+
+Useful troubleshooting commands:
+
+```bash
+docker compose ps
+docker compose logs -f backend
+docker compose logs -f frontend
+docker compose logs -f mongo
+docker compose logs -f redis
+docker compose down
+docker compose down -v
+```
+
+### Windows Failed-Login Test
+
+Use the native Windows collector to send Security Event ID `4625` failed logons into the Dockerized backend.
+
+Step A: Run backend/frontend:
+
+```bash
+cd /home/snp2315/Projects/CyberSecurity/ai-soc-platform
+cp .env.example .env
+docker compose up --build
+```
+
+Step B: On Windows, open PowerShell as Administrator.
+
+Step C: Install collector dependencies:
+
+```powershell
+cd "\\wsl$\Ubuntu\home\snp2315\Projects\CyberSecurity\ai-soc-platform\collector-agent\windows"
+py -m venv .venv
+.\.venv\Scripts\Activate.ps1
+pip install -r requirements.txt
+```
+
+Step D: Create config:
+
+```powershell
+copy config.example.json config.json
+```
+
+Step E: Run collector:
+
+```powershell
+python windows_event_collector.py
+```
+
+Or:
+
+```powershell
+.\run.ps1
+```
+
+Step F: Generate test event:
+
+Lock Windows with `Win + L` and intentionally enter a wrong password 3 times.
+
+Step G: Open:
+
+```text
+http://localhost:3000
+http://localhost:8000/docs
+```
+
+Step H: Verify the failed-login alert appears in the Alerts page. Look for `Windows Failed Login Detected`, host, username, source IP, severity, count, and timestamp. Incident/correlation records appear when the high-severity threshold is reached.
+
+The default Docker Compose token maps to organization ID `6a016ae4ffb4489b3a44ba89`. In development, the backend ensures that organization exists at startup; register or log in with a user in that organization to see the collector alerts.
+
+Manual Event Viewer verification:
+
+```text
+eventvwr.msc -> Windows Logs -> Security -> Event ID 4625
+```
+
 ### One-Command Startup (Docker)
 
 ```bash

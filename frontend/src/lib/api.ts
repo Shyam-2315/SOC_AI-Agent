@@ -45,11 +45,21 @@ export type RegisterResponse = {
 };
 
 export type AlertRecord = BackendDocument & {
+  title?: string;
   source?: string;
   event_type?: string;
   severity?: string;
   message?: string;
   ip_address?: string;
+  hostname?: string;
+  host?: string;
+  username?: string;
+  domain?: string;
+  source_ip?: string;
+  logon_type?: string;
+  failure_reason?: string;
+  process_name?: string;
+  failed_login_count?: number;
   status?: string;
   threat_score?: number;
   threat_label?: string;

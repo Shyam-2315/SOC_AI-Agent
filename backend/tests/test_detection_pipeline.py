@@ -4,6 +4,7 @@ import unittest
 from bson import ObjectId
 
 from app.schemas.collector import CollectorIngestBatch
+from app.schemas.log import LogModel
 from app.services import collectors as collectors_service
 from app.services import ingestion as ingestion_service
 from app.services import rules as rules_service
@@ -161,6 +162,75 @@ class DetectionPipelineTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(response["accepted"], 1)
         self.assertEqual(response["results"][0]["alert_generated"], False)
         self.assertEqual(len(self.alerts.documents), 0)
+
+    async def test_windows_failed_login_threshold_creates_alert(self):
+        for record_id in (101, 102, 103):
+            result = await ingestion_service.ingest_log(
+                LogModel(
+                    source="WIN-LAPTOP",
+                    event_type="windows_failed_login",
+                    severity="medium",
+                    message=f"Windows failed login record {record_id}",
+                    ip_address="10.0.0.15",
+                    hostname="WIN-LAPTOP",
+                    event_id=4625,
+                    record_id=record_id,
+                    username="alice",
+                    source_ip="10.0.0.15",
+                    logon_type="2",
+                    raw_event={"record_id": record_id},
+                ),
+                "org-1",
+                force_sync=True,
+            )
+
+        self.assertTrue(result["alert_generated"])
+        self.assertEqual(len(self.alerts.documents), 1)
+        alert = self.alerts.documents[0]
+        self.assertEqual(alert["title"], "Windows Failed Login Detected")
+        self.assertEqual(alert["severity"], "medium")
+        self.assertEqual(alert["failed_login_count"], 3)
+        self.assertEqual(alert["username"], "alice")
+        self.assertEqual(alert["record_id"], 103)
+
+    async def test_windows_failed_login_duplicate_record_does_not_duplicate_alert(self):
+        for record_id in (201, 202, 203):
+            await ingestion_service.ingest_log(
+                LogModel(
+                    source="WIN-LAPTOP",
+                    event_type="windows_failed_login",
+                    severity="medium",
+                    message=f"Windows failed login record {record_id}",
+                    ip_address="10.0.0.15",
+                    hostname="WIN-LAPTOP",
+                    event_id=4625,
+                    record_id=record_id,
+                    username="alice",
+                    source_ip="10.0.0.15",
+                ),
+                "org-1",
+                force_sync=True,
+            )
+
+        duplicate = await ingestion_service.ingest_log(
+            LogModel(
+                source="WIN-LAPTOP",
+                event_type="windows_failed_login",
+                severity="medium",
+                message="Duplicate Windows failed login",
+                ip_address="10.0.0.15",
+                hostname="WIN-LAPTOP",
+                event_id=4625,
+                record_id=203,
+                username="alice",
+                source_ip="10.0.0.15",
+            ),
+            "org-1",
+            force_sync=True,
+        )
+
+        self.assertFalse(duplicate["alert_generated"])
+        self.assertEqual(len(self.alerts.documents), 1)
 
 
 if __name__ == "__main__":

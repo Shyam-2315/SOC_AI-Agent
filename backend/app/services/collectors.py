@@ -156,6 +156,17 @@ async def authenticate_collector_token(token: str | None) -> dict:
             detail="Collector token is required",
         )
 
+    for configured_token, organization_id in getattr(settings, "collector_api_keys", {}).items():
+        if secrets.compare_digest(token, configured_token):
+            return {
+                "_id": f"env:{organization_id}",
+                "name": "Environment collector token",
+                "type": "custom",
+                "organization_id": organization_id,
+                "status": "active",
+                "env_configured": True,
+            }
+
     collector = await collectors_collection.find_one(
         {"api_key_hash": hash_collector_token(token)}
     )
@@ -218,17 +229,25 @@ async def ingest_collector_batch(batch: CollectorIngestBatch, collector: dict) -
             {
                 "index": index,
                 "log_id": result["log_id"],
+                "event_id": result.get("event_id"),
+                "record_id": result.get("record_id"),
                 "alert_generated": result["alert_generated"],
+                "alert_created": result.get("alert_created", result["alert_generated"]),
+                "incident_created": result.get("incident_created", False),
+                "duplicate": result.get("duplicate", False),
+                "alert_id": result.get("alert_id"),
+                "incident_id": result.get("incident_id"),
                 "matched_rule": result.get("matched_rule"),
                 "task_id": result.get("task_id"),
             }
         )
 
     now = datetime.now(timezone.utc)
-    await collectors_collection.update_one(
-        {"_id": collector["_id"]},
-        {"$set": {"last_seen_at": now, "updated_at": now}},
-    )
+    if not collector.get("env_configured"):
+        await collectors_collection.update_one(
+            {"_id": collector["_id"]},
+            {"$set": {"last_seen_at": now, "updated_at": now}},
+        )
 
     return {
         "message": "Collector batch processed",

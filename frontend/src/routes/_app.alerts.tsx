@@ -20,6 +20,9 @@ type AlertRow = AlertRecord & {
   id: string;
   title: string;
   ip: string;
+  host: string;
+  username: string;
+  count: string;
   rule: string;
 };
 
@@ -27,8 +30,11 @@ function toRow(alert: AlertRecord): AlertRow {
   return {
     ...alert,
     id: entityId(alert),
-    title: textOf(alert.message, textOf(alert.event_type, "Alert")),
-    ip: textOf(alert.ip_address),
+    title: textOf(alert.title, textOf(alert.message, textOf(alert.event_type, "Alert"))),
+    ip: textOf(alert.source_ip, textOf(alert.ip_address)),
+    host: textOf(alert.hostname, textOf(alert.host, textOf(alert.source))),
+    username: textOf(alert.username),
+    count: alert.failed_login_count ? String(alert.failed_login_count) : "-",
     rule: textOf(alert.matched_rule_name, "Classifier"),
   };
 }
@@ -82,6 +88,21 @@ function AlertsPage() {
       key: "ip",
       header: "Source IP",
       render: (r) => <span className="font-mono text-xs">{r.ip}</span>,
+    },
+    {
+      key: "host",
+      header: "Host",
+      render: (r) => <span className="font-mono text-xs">{r.host}</span>,
+    },
+    {
+      key: "user",
+      header: "Username",
+      render: (r) => <span className="font-mono text-xs">{r.username}</span>,
+    },
+    {
+      key: "count",
+      header: "Count",
+      render: (r) => <span className="font-mono text-xs">{r.count}</span>,
     },
     {
       key: "src",
@@ -142,8 +163,8 @@ function AlertsPage() {
       <DataTable
         rows={rows}
         columns={cols}
-        searchPlaceholder="Search alerts, IPs, rules…"
-        searchKeys={["title", "ip", "source", "rule"]}
+        searchPlaceholder="Search alerts, hosts, users, IPs, rules…"
+        searchKeys={["title", "host", "username", "ip", "source", "rule"]}
         emptyTitle="No alerts"
       />
     </div>

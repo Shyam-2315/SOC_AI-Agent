@@ -1,4 +1,4 @@
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
 from fastapi import HTTPException
 
@@ -28,6 +28,44 @@ from app.services.rules import evaluate_rules
 
 logger = get_logger(__name__)
 
+WINDOWS_FAILED_LOGIN_EVENT_TYPE = "windows_failed_login"
+WINDOWS_FAILED_LOGIN_TITLE = "Windows Failed Login Detected"
+
+
+def _event_timestamp(value: datetime | None = None) -> datetime:
+    if value is None:
+        return datetime.now(timezone.utc)
+    if value.tzinfo is None:
+        return value.replace(tzinfo=timezone.utc)
+    return value.astimezone(timezone.utc)
+
+
+def _windows_fields(data: LogModel) -> dict:
+    values = data.model_dump(
+        include={
+            "timestamp",
+            "hostname",
+            "host",
+            "event_id",
+            "provider",
+            "record_id",
+            "logon_type",
+            "username",
+            "domain",
+            "source_ip",
+            "workstation_name",
+            "failure_reason",
+            "status",
+            "substatus",
+            "process_name",
+            "raw_event",
+        },
+        exclude_none=True,
+    )
+    if "timestamp" in values:
+        values["timestamp"] = _event_timestamp(values["timestamp"])
+    return values
+
 
 def _build_log_context(
     data: LogModel,
@@ -47,7 +85,7 @@ def _build_log_context(
     )
     ip_reputation = check_ip_reputation(str(data.ip_address))
 
-    return {
+    context = {
         "source": data.source,
         "event_type": data.event_type,
         "severity": data.severity,
@@ -71,6 +109,15 @@ def _build_log_context(
             threat_result["label"] == "malicious" or data.severity.lower() == "critical"
         ),
     }
+    context.update(_windows_fields(data))
+    if not context.get("hostname") and context.get("host"):
+        context["hostname"] = context["host"]
+    if not context.get("host") and context.get("hostname"):
+        context["host"] = context["hostname"]
+    if context["event_type"] == WINDOWS_FAILED_LOGIN_EVENT_TYPE:
+        context["alert_generated"] = False
+        context["severity"] = "medium"
+    return context
 
 
 async def _store_log(context: dict) -> str:
@@ -94,8 +141,27 @@ async def _store_log(context: dict) -> str:
         "ip_reputation": context["ip_reputation"],
         "matched_rule_id": context.get("matched_rule_id"),
         "matched_rule_name": context.get("matched_rule_name"),
-        "timestamp": datetime.now(timezone.utc),
+        "timestamp": _event_timestamp(context.get("timestamp")),
     }
+    for field in (
+        "hostname",
+        "host",
+        "event_id",
+        "provider",
+        "record_id",
+        "logon_type",
+        "username",
+        "domain",
+        "source_ip",
+        "workstation_name",
+        "failure_reason",
+        "status",
+        "substatus",
+        "process_name",
+        "raw_event",
+    ):
+        if context.get(field) is not None:
+            log_document[field] = context[field]
     result = await logs_collection.insert_one(log_document)
     return str(result.inserted_id)
 
@@ -262,6 +328,7 @@ async def process_alert_job(
 async def _process_alert_artifacts(alert_context: dict) -> dict:
     alert_data = {
         "log_id": alert_context["log_id"],
+        "title": alert_context.get("title") or alert_context["message"],
         "source": alert_context["source"],
         "event_type": alert_context["event_type"],
         "severity": alert_context["severity"],
@@ -284,6 +351,28 @@ async def _process_alert_artifacts(alert_context: dict) -> dict:
         "status": "open",
         "timestamp": datetime.now(timezone.utc),
     }
+    for field in (
+        "hostname",
+        "host",
+        "event_id",
+        "provider",
+        "record_id",
+        "logon_type",
+        "username",
+        "domain",
+        "source_ip",
+        "workstation_name",
+        "failure_reason",
+        "substatus",
+        "process_name",
+        "raw_event",
+        "failed_login_count",
+        "correlation_window_minutes",
+    ):
+        if alert_context.get(field) is not None:
+            alert_data[field] = alert_context[field]
+    if alert_context.get("status") is not None:
+        alert_data["windows_status"] = alert_context["status"]
     alert_result = await alerts_collection.insert_one(alert_data)
     logger.info(
         "alert created",
@@ -373,7 +462,16 @@ async def _process_alert_artifacts(alert_context: dict) -> dict:
             "event_type": alert_context["event_type"],
             "severity": alert_context["severity"],
             "message": alert_context["message"],
+            "title": alert_data["title"],
             "ip_address": alert_context["ip_address"],
+            "hostname": alert_context.get("hostname"),
+            "host": alert_context.get("host"),
+            "username": alert_context.get("username"),
+            "domain": alert_context.get("domain"),
+            "source_ip": alert_context.get("source_ip"),
+            "logon_type": alert_context.get("logon_type"),
+            "failure_reason": alert_context.get("failure_reason"),
+            "failed_login_count": alert_context.get("failed_login_count"),
             "log_id": alert_context["log_id"],
             "threat_score": alert_context["threat_score"],
             "mitre_tactic": alert_context["mitre_tactic"],
@@ -443,6 +541,125 @@ async def _process_alert_artifacts(alert_context: dict) -> dict:
     return result
 
 
+async def _iter_recent_windows_failed_logins(
+    organization_id: str,
+    since: datetime,
+) -> list[dict]:
+    events = []
+    cursor = logs_collection.find(
+        {
+            "organization_id": organization_id,
+            "event_type": WINDOWS_FAILED_LOGIN_EVENT_TYPE,
+        }
+    )
+    async for event in cursor:
+        timestamp = event.get("timestamp")
+        if isinstance(timestamp, datetime) and _event_timestamp(timestamp) >= since:
+            events.append(event)
+    return events
+
+
+async def _windows_failed_login_alert_context(
+    log_context: dict,
+    log_id: str,
+) -> dict | None:
+    record_id = log_context.get("record_id")
+    if record_id is not None:
+        existing_alert = await alerts_collection.find_one(
+            {
+                "organization_id": log_context["organization_id"],
+                "event_type": WINDOWS_FAILED_LOGIN_EVENT_TYPE,
+                "source": log_context["source"],
+                "record_id": record_id,
+            }
+        )
+        if existing_alert:
+            return None
+
+    username = (log_context.get("username") or "").strip().lower()
+    host = (
+        log_context.get("hostname")
+        or log_context.get("host")
+        or log_context.get("source")
+        or ""
+    ).strip().lower()
+    now = datetime.now(timezone.utc)
+    recent_10m = await _iter_recent_windows_failed_logins(
+        log_context["organization_id"],
+        now - timedelta(minutes=10),
+    )
+
+    def is_same_identity(event: dict) -> bool:
+        event_user = str(event.get("username") or "").strip().lower()
+        event_host = str(
+            event.get("hostname") or event.get("host") or event.get("source") or ""
+        ).strip().lower()
+        return bool((username and event_user == username) or (host and event_host == host))
+
+    matching_10m = [event for event in recent_10m if is_same_identity(event)]
+    matching_5m = [
+        event
+        for event in matching_10m
+        if _event_timestamp(event.get("timestamp")) >= now - timedelta(minutes=5)
+    ]
+    if len(matching_10m) >= 5:
+        count = len(matching_10m)
+        severity = "high"
+        window_minutes = 10
+    elif len(matching_5m) >= 3:
+        count = len(matching_5m)
+        severity = "medium"
+        window_minutes = 5
+    else:
+        return None
+
+    host_label = log_context.get("hostname") or log_context.get("host") or log_context["source"]
+    username_label = log_context.get("username") or "unknown"
+    source_ip = log_context.get("source_ip") or log_context["ip_address"]
+    message = (
+        f"{WINDOWS_FAILED_LOGIN_TITLE}: {count} failed logons in {window_minutes} minutes; "
+        f"host={host_label}; username={username_label}; source_ip={source_ip}"
+    )
+    return {
+        **log_context,
+        "log_id": log_id,
+        "title": WINDOWS_FAILED_LOGIN_TITLE,
+        "message": message,
+        "severity": severity,
+        "threat_label": "suspicious",
+        "threat_score": max(int(log_context.get("threat_score") or 50), 75 if severity == "high" else 55),
+        "alert_generated": True,
+        "matched_rule_name": "Windows failed login threshold",
+        "mitre_tactic": "Credential Access",
+        "mitre_technique": "T1110 - Brute Force",
+        "mitre_tactic_id": "TA0006",
+        "mitre_tactic_name": "Credential Access",
+        "mitre_technique_id": "T1110",
+        "mitre_technique_name": "Brute Force",
+        "failed_login_count": count,
+        "correlation_window_minutes": window_minutes,
+    }
+
+
+async def _find_duplicate_windows_event(log_context: dict) -> dict | None:
+    if log_context["event_type"] != WINDOWS_FAILED_LOGIN_EVENT_TYPE:
+        return None
+    record_id = log_context.get("record_id")
+    event_id = log_context.get("event_id")
+    if record_id is None or event_id is None:
+        return None
+    host = log_context.get("hostname") or log_context.get("host") or log_context["source"]
+    return await logs_collection.find_one(
+        {
+            "organization_id": log_context["organization_id"],
+            "event_type": WINDOWS_FAILED_LOGIN_EVENT_TYPE,
+            "event_id": event_id,
+            "record_id": record_id,
+            "hostname": host,
+        }
+    )
+
+
 async def ingest_log(
     data: LogModel,
     organization_id: str,
@@ -451,6 +668,23 @@ async def ingest_log(
     force_sync: bool = False,
 ) -> dict:
     log_context = _build_log_context(data, organization_id)
+    duplicate = await _find_duplicate_windows_event(log_context)
+    if duplicate is not None:
+        return {
+            "message": "Duplicate event ignored",
+            "log_id": str(duplicate["_id"]),
+            "organization_id": organization_id,
+            "event_id": log_context.get("event_id"),
+            "record_id": log_context.get("record_id"),
+            "alert_generated": False,
+            "alert_created": False,
+            "incident_created": False,
+            "duplicate": True,
+            "matched_rule": None,
+            "processing_mode": "sync",
+            "alert_processing_status": "skipped",
+        }
+
     matched_rule = await evaluate_rules(log_context)
     if matched_rule:
         log_context["matched_rule_id"] = matched_rule["id"]
@@ -474,7 +708,17 @@ async def ingest_log(
 
     log_id = await _store_log(log_context)
 
+    windows_alert_context = None
+    if log_context["event_type"] == WINDOWS_FAILED_LOGIN_EVENT_TYPE:
+        windows_alert_context = await _windows_failed_login_alert_context(
+            log_context,
+            log_id,
+        )
+        if windows_alert_context is not None:
+            log_context = windows_alert_context
+
     task_id = None
+    alert_artifacts_result = None
     processing_mode = "sync"
     alert_processing_status = "skipped"
 
@@ -486,25 +730,32 @@ async def ingest_log(
             processing_mode = "celery"
             alert_processing_status = "queued"
         else:
-            await _process_alert_artifacts(alert_context)
+            alert_artifacts_result = await _process_alert_artifacts(alert_context)
             alert_processing_status = "completed"
 
     response = {
         "message": "Log ingested successfully",
         "log_id": log_id,
         "organization_id": organization_id,
+        "event_id": log_context.get("event_id"),
+        "record_id": log_context.get("record_id"),
         "threat_analysis": {
             "threat_score": log_context["threat_score"],
             "label": log_context["threat_label"],
         },
         "ip_reputation": log_context["ip_reputation"],
         "alert_generated": log_context["alert_generated"],
+        "alert_created": bool(log_context["alert_generated"]),
+        "incident_created": bool(alert_artifacts_result and alert_artifacts_result.get("incident_id")),
+        "duplicate": False,
         "matched_rule": matched_rule,
         "processing_mode": processing_mode,
         "alert_processing_status": alert_processing_status,
     }
     if task_id is not None:
         response["task_id"] = task_id
+    if alert_artifacts_result is not None:
+        response.update(alert_artifacts_result)
     return response
 
 

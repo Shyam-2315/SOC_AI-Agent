@@ -1,0 +1,8 @@
+{
+  "backend_url": "http://localhost:8000",
+  "api_token": "test-collector-token",
+  "poll_interval_seconds": 5,
+  "log_name": "Security",
+  "event_ids": [4625],
+  "state_file": "state.json"
+}

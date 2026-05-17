@@ -34,6 +34,25 @@ async def create_indexes() -> None:
     await logs_collection.create_index(
         [("organization_id", ASCENDING), ("ip_address", ASCENDING)]
     )
+    await logs_collection.create_index(
+        [("organization_id", ASCENDING), ("event_type", ASCENDING), ("record_id", ASCENDING)]
+    )
+    await logs_collection.create_index(
+        [
+            ("organization_id", ASCENDING),
+            ("event_type", ASCENDING),
+            ("event_id", ASCENDING),
+            ("hostname", ASCENDING),
+            ("record_id", ASCENDING),
+        ],
+        unique=True,
+        partialFilterExpression={
+            "event_type": "windows_failed_login",
+            "event_id": {"$exists": True},
+            "hostname": {"$exists": True},
+            "record_id": {"$exists": True},
+        },
+    )
     await alerts_collection.create_index(
         [("organization_id", ASCENDING), ("timestamp", DESCENDING)]
     )
@@ -45,6 +64,9 @@ async def create_indexes() -> None:
     )
     await alerts_collection.create_index(
         [("organization_id", ASCENDING), ("ip_address", ASCENDING)]
+    )
+    await alerts_collection.create_index(
+        [("organization_id", ASCENDING), ("event_type", ASCENDING), ("record_id", ASCENDING)]
     )
     await incidents_collection.create_index(
         [("organization_id", ASCENDING), ("timestamp", DESCENDING)]

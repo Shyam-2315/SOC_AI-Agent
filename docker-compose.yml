@@ -1,0 +1,123 @@
+services:
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    image: ai-soc-platform-backend:local
+    restart: unless-stopped
+    environment:
+      APP_NAME: AI SOC Platform
+      APP_VERSION: 1.0.0
+      ENVIRONMENT: development
+      DEBUG: "true"
+      DOCS_ENABLED: "true"
+      LOG_LEVEL: INFO
+      LOG_JSON: "false"
+      HOST: 0.0.0.0
+      PORT: 8000
+      WEB_CONCURRENCY: 1
+      TRUSTED_HOSTS: localhost,127.0.0.1,backend,testserver
+      HTTPS_REDIRECT: "false"
+      CORS_ALLOW_CREDENTIALS: "true"
+      CORS_ORIGINS: http://localhost:3000,http://127.0.0.1:3000
+      MONGO_URL: mongodb://mongo:27017
+      DATABASE_NAME: ai_soc
+      JWT_SECRET: change-me-to-a-long-random-secret-at-least-32-chars
+      JWT_ALGORITHM: HS256
+      ACCESS_TOKEN_EXPIRE_MINUTES: 60
+      PUBLIC_REGISTRATION_ENABLED: "true"
+      REDIS_URL: redis://redis:6379/0
+      ALERT_PROCESSING_MODE: sync
+      REALTIME_EVENTS_CHANNEL: realtime-events
+      COLLECTOR_API_KEYS: test-collector-token:6a016ae4ffb4489b3a44ba89
+      COLLECTOR_BATCH_MAX_SIZE: 100
+      SYSLOG_ENABLED: "false"
+      AUTH_RATE_LIMIT_PER_MINUTE: 20
+      INGESTION_RATE_LIMIT_PER_MINUTE: 120
+    ports:
+      - "8000:8000"
+    depends_on:
+      mongo:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "python -c \"import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health/live', timeout=5).read()\"",
+        ]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      args:
+        VITE_API_BASE_URL: http://localhost:8000
+        VITE_WS_BASE_URL: ws://localhost:8000
+        VITE_DEMO_MODE: "false"
+        VITE_DEMO_ADMIN_EMAIL: demo.admin@aisoc.dev
+        VITE_DEMO_ADMIN_PASSWORD: DemoAdmin123!
+        VITE_DEMO_COLLECTOR_TOKEN: test-collector-token
+    image: ai-soc-platform-frontend:local
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      HOST: 0.0.0.0
+      PORT: 3000
+    ports:
+      - "3000:3000"
+    depends_on:
+      backend:
+        condition: service_healthy
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "node -e \"fetch('http://127.0.0.1:3000/').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))\"",
+        ]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 20s
+
+  mongo:
+    image: mongo:7.0
+    restart: unless-stopped
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo_data:/data/db
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "mongosh --quiet --eval \"db.adminCommand('ping').ok\" | grep 1",
+        ]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 20s
+
+  redis:
+    image: redis:7.4-alpine
+    restart: unless-stopped
+    command: ["redis-server", "--appendonly", "yes"]
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 10s
+
+volumes:
+  mongo_data:
+  redis_data:
