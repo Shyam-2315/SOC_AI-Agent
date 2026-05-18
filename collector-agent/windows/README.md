@@ -1,107 +1,77 @@
-# AI SOC Windows Failed-Login Collector
+# AI SOC Windows Collector
 
-Native Windows collector for Security Event ID `4625`, "An account failed to log on."
+## Install (Admin PowerShell)
 
-It runs directly in Windows PowerShell, reads the local Windows Security log, stores the last processed `record_id` in `state.json`, and sends failed-login events to the Dockerized backend at `/collector/ingest`.
-
-## Test Steps
-
-Step A: Run backend/frontend from the project root:
-
-```bash
-cd /home/snp2315/Projects/CyberSecurity/ai-soc-platform
-cp .env.example .env
-docker compose up --build
+```powershell
+cd C:\ai-soc-windows-collector
+Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
+.\install.ps1
 ```
 
-Step B: On Windows, open PowerShell as Administrator.
-
-Step C: Install collector dependencies:
+If running from repo path first:
 
 ```powershell
 cd "\\wsl$\Ubuntu\home\snp2315\Projects\CyberSecurity\ai-soc-platform\collector-agent\windows"
-py -m venv .venv
-.\.venv\Scripts\Activate.ps1
-pip install -r requirements.txt
+.\install.ps1
 ```
 
-Step D: Create config:
+Installer copies files to `C:\ai-soc-windows-collector`, creates/updates `config.json`, installs service with automatic startup, configures service recovery (restart after 1 minute on first/second failure), and starts service.
+
+## Modes
 
 ```powershell
-copy config.example.json config.json
+.\install.ps1 -Repair
+.\install.ps1 -Status
+.\install.ps1 -Test
 ```
 
-Edit `config.json` if your backend is not reachable at `http://localhost:8000`.
+`-Status` prints:
+- service installed/running/stopped
+- config exists
+- backend reachable
 
-Step E: Run collector:
+`-Test` sends synthetic test event:
+- `event_type = windows_collector_test`
+- `source = configured source_name`
+- `severity = low`
+
+## Service Commands
 
 ```powershell
-python windows_event_collector.py
+Get-Service AISOCWindowsCollector
+Restart-Service AISOCWindowsCollector
+Stop-Service AISOCWindowsCollector
+Start-Service AISOCWindowsCollector
 ```
 
-Or:
+Collector logs:
+
+```text
+C:\ai-soc-windows-collector\logs\collector.log
+```
+
+## Uninstall
+
+Stop and remove service manually if needed:
 
 ```powershell
-.\run.ps1
+py -3 windows_service.py stop
+py -3 windows_service.py remove
 ```
 
-Step F: Generate test event:
+## Reboot Verification
 
-Lock Windows with `Win + L` and intentionally enter a wrong password 3 times.
+1. Reboot Windows.
+2. After login, run:
 
-Step G: Open:
-
-```text
-http://localhost:3000
-http://localhost:8000/docs
+```powershell
+Get-Service AISOCWindowsCollector
 ```
 
-Step H: Verify the failed-login alert appears in the Alerts page. Look for `Windows Failed Login Detected`, host, username, source IP, severity, count, and timestamp.
-
-## Event Viewer Verification
-
-Open:
-
-```text
-eventvwr.msc -> Windows Logs -> Security -> Event ID 4625
-```
-
-The collector reads the same Security log records and sends the parsed fields to AI SOC. The local state format is shown in `state.json.example`; the active state file is `state.json`.
-
-## Configuration
-
-```json
-{
-  "backend_url": "http://localhost:8000",
-  "api_token": "test-collector-token",
-  "poll_interval_seconds": 5,
-  "log_name": "Security",
-  "event_ids": [4625],
-  "state_file": "state.json"
-}
-```
-
-The API token must exist in backend `COLLECTOR_API_KEYS`, for example:
-
-```text
-COLLECTOR_API_KEYS=test-collector-token:6a016ae4ffb4489b3a44ba89
-```
-
-The user viewing the dashboard must belong to the same organization ID. The development Docker Compose setup creates that organization at startup.
+Expected: `Status = Running`, `StartType = Automatic`.
 
 ## Troubleshooting
 
-Use Administrator PowerShell. Reading the Security log generally requires elevated privileges.
-
-If no alerts appear:
-
-```powershell
-Get-Content .\state.json
-python windows_event_collector.py
-```
-
-Check backend logs:
-
-```powershell
-docker compose logs -f backend
-```
+- `config.json missing required fields`: run `.\install.ps1 -Repair` and provide `backend_url`, `collector_token`, `source_name`.
+- `backend reachable: no`: verify backend URL and `http://<backend>/health/ready`.
+- `test event rejected`: token invalid/disabled, or backend ingest unavailable.

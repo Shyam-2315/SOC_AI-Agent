@@ -1,6 +1,6 @@
 {
   "backend_url": "http://localhost:8000",
-  "api_token": "soc_col_Mp7WJo2Rg268IGDjTSeA3FBAyzzMmqF0jc29iuj4v8w",
+  "api_token": "soc_col_3A-ndTNiQ8bp2dj8bNdz3vRESohuK5JQ3lNT1csikYo",
   "poll_interval_seconds": 5,
   "log_name": "Security",
   "event_ids": [4625],

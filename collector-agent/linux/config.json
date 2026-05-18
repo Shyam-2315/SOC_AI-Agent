@@ -1,6 +1,6 @@
 {
-  "backend_url": "http://127.0.0.1:8000",
-  "collector_token": "soc_col_p8wUylFkxCUIJc3Mr_1Hqux1eXWMtdGJWB7zNmMDRJk",
+  "backend_url": "http://127.0.0.1",
+  "collector_token": "soc_col_drrjWH2HweYSafVrGAZf7y8Cg3f9AgZzTdICnaKqqTc",
   "source_name": "linux-host-01",
   "polling_interval_seconds": 30,
   "batch_size": 25,

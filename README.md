@@ -257,67 +257,40 @@ docker compose down
 docker compose down -v
 ```
 
-### Windows Failed-Login Test
+### Collector Lifecycle (Windows + Linux)
 
-Use the native Windows collector to send Security Event ID `4625` failed logons into the Dockerized backend.
+Windows (Admin PowerShell):
 
-Step A: Run backend/frontend:
+```powershell
+cd C:\ai-soc-windows-collector
+.\install.ps1
+.\install.ps1 -Repair
+.\install.ps1 -Status
+.\install.ps1 -Test
+Get-Service AISOCWindowsCollector
+Restart-Service AISOCWindowsCollector
+```
+
+Linux:
 
 ```bash
-cd /home/snp2315/Projects/CyberSecurity/ai-soc-platform
-cp .env.example .env
-docker compose up --build
+cd collector-agent/linux
+sudo bash install.sh
+sudo bash install.sh --repair
+sudo bash install.sh --status
+sudo bash install.sh --test
+sudo systemctl restart ai-soc-linux-collector
+sudo bash uninstall.sh
 ```
 
-Step B: On Windows, open PowerShell as Administrator.
-
-Step C: Install collector dependencies:
-
-```powershell
-cd "\\wsl$\Ubuntu\home\snp2315\Projects\CyberSecurity\ai-soc-platform\collector-agent\windows"
-py -m venv .venv
-.\.venv\Scripts\Activate.ps1
-pip install -r requirements.txt
-```
-
-Step D: Create config:
-
-```powershell
-copy config.example.json config.json
-```
-
-Step E: Run collector:
-
-```powershell
-python windows_event_collector.py
-```
-
-Or:
-
-```powershell
-.\run.ps1
-```
-
-Step F: Generate test event:
-
-Lock Windows with `Win + L` and intentionally enter a wrong password 3 times.
-
-Step G: Open:
-
-```text
-http://localhost:3000
-http://localhost:8000/docs
-```
-
-Step H: Verify the failed-login alert appears in the Alerts page. Look for `Windows Failed Login Detected`, host, username, source IP, severity, count, and timestamp. Incident/correlation records appear when the high-severity threshold is reached.
-
-The default Docker Compose token maps to organization ID `6a016ae4ffb4489b3a44ba89`. In development, the backend ensures that organization exists at startup; register or log in with a user in that organization to see the collector alerts.
-
-Manual Event Viewer verification:
-
-```text
-eventvwr.msc -> Windows Logs -> Security -> Event ID 4625
-```
+Expected:
+- Windows service `AISOCWindowsCollector` is `Automatic` and `Running`.
+- Linux service `ai-soc-linux-collector` is `enabled` and `active`.
+- Test events are accepted with:
+  - `windows_collector_test`
+  - `linux_collector_test`
+  - `source = configured source_name`
+  - `severity = low`
 
 ### One-Command Startup (Docker)
 

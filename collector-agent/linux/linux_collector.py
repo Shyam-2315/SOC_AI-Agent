@@ -38,6 +38,7 @@ EVENT_SEVERITY = {
     "linux_docker_privileged_container": "critical",
     "linux_file_integrity_change": "critical",
     "linux_endpoint_heartbeat": "low",
+    "linux_collector_test": "low",
 }
 
 FAILED_SSH_RE = re.compile(
@@ -556,9 +557,10 @@ class LinuxCollector:
             logs.extend(self.collect_heartbeat()[: batch_size - len(logs)])
         return logs[:batch_size]
 
-    def send_logs(self, logs: list[dict[str, str]]) -> bool:
+    def send_logs(self, logs: list[dict[str, str]]) -> tuple[bool, str]:
         if not logs:
-            return True
+            return True, "no logs to send"
+        last_error = "unknown send failure"
         payload = {"logs": logs}
         headers = {
             "Content-Type": "application/json",
@@ -569,22 +571,25 @@ class LinuxCollector:
                 response = self.session.post(self.url, json=payload, headers=headers, timeout=20)
                 if response.ok:
                     self.log.info("sent %s log(s) to %s", len(logs), self.url)
-                    return True
+                    return True, f"accepted status={response.status_code}"
                 self.log.warning(
                     "backend rejected batch attempt=%s status=%s body=%s",
                     attempt,
                     response.status_code,
                     response.text[:500],
                 )
+                last_error = f"rejected status={response.status_code} body={response.text[:500]}"
             except requests.RequestException:
                 self.log.exception("failed sending batch attempt=%s", attempt)
+                last_error = "request error while sending"
             time.sleep(min(2**attempt, 10))
-        return False
+        return False, last_error
 
     def run_once(self) -> bool:
         previous_state = json.loads(json.dumps(self.state))
         logs = self.collect_once()
-        if self.send_logs(logs):
+        sent, _ = self.send_logs(logs)
+        if sent:
             save_state(self.config["state_file"], self.state)
             return True
         self.state = previous_state
@@ -594,10 +599,15 @@ class LinuxCollector:
     def send_test_event(self) -> bool:
         log = event(
             self.config["source_name"],
-            "linux_endpoint_heartbeat",
+            "linux_collector_test",
             f"AI SOC Linux Collector synthetic test event; hostname={hostname()}; platform=linux",
         )
-        return self.send_logs([log])
+        sent, reason = self.send_logs([log])
+        if sent:
+            print(f"Test event accepted: {reason}")
+        else:
+            print(f"Test event rejected: {reason}")
+        return sent
 
     def run_forever(self) -> None:
         self.log.info("AI SOC Linux Collector started; backend=%s", self.url)

@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-AGENT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+INSTALL_DIR="/opt/ai-soc-linux-collector"
 SERVICE_NAME="ai-soc-linux-collector"
 SERVICE_FILE="/etc/systemd/system/${SERVICE_NAME}.service"
 
@@ -23,16 +23,16 @@ if command -v systemctl >/dev/null 2>&1; then
   $SUDO systemctl daemon-reload
 fi
 
-read -r -p "Keep config.json, state.json, and logs directory? [Y/n]: " KEEP
+read -r -p "Keep config.json, state.json, and logs directory in $INSTALL_DIR? [Y/n]: " KEEP
 KEEP="${KEEP:-Y}"
 case "$KEEP" in
   n|N|no|NO)
-    rm -f "$AGENT_DIR/config.json" "$AGENT_DIR/state.json"
-    rm -rf "$AGENT_DIR/logs"
-    echo "Removed local config, state, and logs."
+    $SUDO rm -f "$INSTALL_DIR/config.json" "$INSTALL_DIR/state.json"
+    $SUDO rm -rf "$INSTALL_DIR/logs"
+    echo "Removed config, state, and logs."
     ;;
   *)
-    echo "Kept local config, state, and logs."
+    echo "Kept config, state, and logs."
     ;;
 esac
 
