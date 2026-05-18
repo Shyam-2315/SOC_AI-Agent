@@ -2,4 +2,5 @@
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-"$ROOT_DIR/start.sh" --stop "$@"
+"$ROOT_DIR/start.sh" --reset "$@"
+

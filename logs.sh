@@ -2,21 +2,8 @@
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-BACKEND_DIR="$ROOT_DIR/backend"
-SERVICE="${1:-}"
+source "$ROOT_DIR/scripts/common.sh"
+source "$ROOT_DIR/scripts/logs.sh"
 
-if ! command -v docker >/dev/null 2>&1; then
-  echo "Docker is not installed or not on PATH." >&2
-  exit 1
-fi
+show_logs "$@"
 
-if ! docker info >/dev/null 2>&1; then
-  echo "Docker is not running. Start Docker and rerun ./logs.sh." >&2
-  exit 1
-fi
-
-if [ -n "$SERVICE" ]; then
-  docker compose -f "$BACKEND_DIR/docker-compose.prod.yml" logs -f --tail=200 "$SERVICE"
-else
-  docker compose -f "$BACKEND_DIR/docker-compose.prod.yml" logs -f --tail=200
-fi

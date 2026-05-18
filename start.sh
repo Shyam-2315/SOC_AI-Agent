@@ -1,159 +1,150 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-BACKEND_DIR="$ROOT_DIR/backend"
-ENV_FILE="$BACKEND_DIR/.env"
-COMPOSE_FILES=(-f "$BACKEND_DIR/docker-compose.prod.yml")
-SEED_DEMO=false
-MODE="prod"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "$SCRIPT_DIR/scripts/common.sh"
+source "$SCRIPT_DIR/scripts/validate.sh"
+source "$SCRIPT_DIR/scripts/docker.sh"
+source "$SCRIPT_DIR/scripts/health.sh"
+source "$SCRIPT_DIR/scripts/logs.sh"
+
+BUILD=0
+DEBUG=0
+DO_RESET=0
+DO_LOGS=0
+DO_STATUS=0
+DO_STOP=0
+DO_CLEAN=0
+FRONTEND_ONLY=0
+BACKEND_ONLY=0
+REMOVE_VOLUMES=0
+SEED_DEMO=0
 
 usage() {
   cat <<'EOF'
-Usage: ./start.sh [--build] [--seed-demo] [--local] [--prod]
+Usage: ./start.sh [options]
 
 Options:
-  --build       Rebuild images before starting. start.sh builds by default.
-  --seed-demo   Seed demo data after services are healthy.
-  --local       Include local compose override for MongoDB and Redis host ports.
-  --prod        Use production compose only. This is the default.
+  --build          Rebuild Docker images and frontend build
+  --debug          Enable verbose startup/debug output
+  --reset          Stop stack, remove containers, reseed demo data
+  --reset-volumes  Same as --reset, also remove volumes
+  --logs           Tail logs for all services
+  --status         Show service/container and endpoint status
+  --stop           Stop services safely
+  --clean          Remove temp/cache/dangling resources
+  --frontend-only  Start frontend service only
+  --backend-only   Start backend services only (no frontend)
+  --dev            Use prod compose + local override
+  --prod           Use production compose only (default)
+  -h, --help       Show help
 EOF
 }
 
-for arg in "$@"; do
-  case "$arg" in
-    --build)
-      ;;
-    --seed-demo)
-      SEED_DEMO=true
-      ;;
-    --local)
-      MODE="local"
-      COMPOSE_FILES=(-f "$BACKEND_DIR/docker-compose.prod.yml" -f "$BACKEND_DIR/docker-compose.local.yml")
-      ;;
-    --prod)
-      MODE="prod"
-      COMPOSE_FILES=(-f "$BACKEND_DIR/docker-compose.prod.yml")
-      ;;
-    -h|--help)
-      usage
-      exit 0
-      ;;
-    *)
-      echo "Unknown option: $arg" >&2
-      usage
-      exit 1
-      ;;
+while [[ "$#" -gt 0 ]]; do
+  case "$1" in
+    --build) BUILD=1 ;;
+    --debug) DEBUG=1 ;;
+    --reset) DO_RESET=1; SEED_DEMO=1 ;;
+    --reset-volumes) DO_RESET=1; REMOVE_VOLUMES=1; SEED_DEMO=1 ;;
+    --logs) DO_LOGS=1 ;;
+    --status) DO_STATUS=1 ;;
+    --stop) DO_STOP=1 ;;
+    --clean) DO_CLEAN=1 ;;
+    --frontend-only) FRONTEND_ONLY=1 ;;
+    --backend-only) BACKEND_ONLY=1 ;;
+    --dev) MODE="dev" ;;
+    --prod) MODE="prod" ;;
+    -h|--help) usage; exit 0 ;;
+    *) fail "Unknown option: $1"; usage; exit 1 ;;
   esac
+  shift
 done
 
-compose() {
-  docker compose "${COMPOSE_FILES[@]}" "$@"
-}
-
-env_value() {
-  local key="$1"
-  if [ ! -f "$ENV_FILE" ]; then
-    return 0
-  fi
-  grep -E "^${key}=" "$ENV_FILE" | tail -n 1 | cut -d= -f2- | tr -d '"' | tr -d "'"
-}
-
-require_docker() {
-  if ! command -v docker >/dev/null 2>&1; then
-    echo "Docker is not installed or not on PATH." >&2
-    exit 1
-  fi
-  if ! docker info >/dev/null 2>&1; then
-    echo "Docker is not running. Start Docker and rerun ./start.sh." >&2
-    exit 1
-  fi
-}
-
-wait_for_stack() {
-  local services=(mongo redis app celery-worker syslog-receiver nginx frontend)
-  local deadline=$((SECONDS + 240))
-  echo "Waiting for services to become healthy..."
-  while [ "$SECONDS" -lt "$deadline" ]; do
-    local ready=true
-    for service in "${services[@]}"; do
-      local cid
-      cid="$(compose ps -q "$service" 2>/dev/null || true)"
-      if [ -z "$cid" ]; then
-        ready=false
-        break
-      fi
-      local state health
-      state="$(docker inspect -f '{{.State.Status}}' "$cid" 2>/dev/null || true)"
-      health="$(docker inspect -f '{{if .State.Health}}{{.State.Health.Status}}{{else}}none{{end}}' "$cid" 2>/dev/null || true)"
-      if [ "$state" != "running" ]; then
-        ready=false
-        break
-      fi
-      if [ "$health" != "healthy" ] && [ "$health" != "none" ]; then
-        ready=false
-        break
-      fi
-    done
-    if [ "$ready" = true ]; then
-      echo "All services are running."
-      return 0
-    fi
-    sleep 3
-  done
-  echo "Timed out waiting for services. Run ./status.sh and ./logs.sh for details." >&2
-  compose ps
-  return 1
-}
-
-print_urls() {
-  local docs_enabled frontend_url backend_url health_url docs_url
-  docs_enabled="$(env_value DOCS_ENABLED)"
-  frontend_url="${FRONTEND_URL:-http://127.0.0.1:8080}"
-  backend_url="${BACKEND_API_URL:-http://127.0.0.1}"
-  health_url="${HEALTH_URL:-http://127.0.0.1/health/ready}"
-  docs_url="${API_DOCS_URL:-http://127.0.0.1/docs}"
-
-  echo
-  echo "AI SOC Platform is running ($MODE mode)"
-  echo "Frontend URL:   $frontend_url"
-  echo "Nginx UI URL:   http://127.0.0.1"
-  echo "Backend API:    $backend_url"
-  echo "Health URL:     $health_url"
-  if [ "$docs_enabled" = "true" ]; then
-    echo "API Docs URL:   $docs_url"
-  else
-    echo "API Docs URL:   disabled (DOCS_ENABLED=false)"
-  fi
-  echo
-  if [ "$SEED_DEMO" = true ] || [ "$(env_value DEMO_MODE)" = "true" ]; then
-    echo "Demo login:"
-    echo "  Email:    $(env_value DEMO_ADMIN_EMAIL)"
-    echo "  Password: $(env_value DEMO_ADMIN_PASSWORD)"
-    echo "  Collector token: $(env_value DEMO_COLLECTOR_TOKEN)"
-    echo
-  fi
-  echo "Useful commands:"
-  echo "  ./status.sh"
-  echo "  ./logs.sh app"
-  echo "  ./stop.sh"
-}
-
-require_docker
-
-if [ ! -f "$ENV_FILE" ]; then
-  echo "Missing $ENV_FILE. Create it from backend/.env.example first:" >&2
-  echo "  cp backend/.env.example backend/.env" >&2
+if [[ "$FRONTEND_ONLY" -eq 1 && "$BACKEND_ONLY" -eq 1 ]]; then
+  fail "--frontend-only and --backend-only are mutually exclusive"
   exit 1
 fi
 
-echo "Starting AI SOC Platform with Docker Compose..."
-compose up -d --build
-wait_for_stack
-
-if [ "$SEED_DEMO" = true ] || [ "$(env_value DEMO_MODE)" = "true" ]; then
-  echo "Seeding demo data..."
-  compose exec -T app python scripts/seed_demo.py
+if [[ "$DO_LOGS" -eq 1 ]]; then
+  show_logs
+  exit 0
 fi
 
-print_urls
+if [[ "$DO_STATUS" -eq 1 ]]; then
+  show_status
+  exit 0
+fi
+
+if [[ "$DO_STOP" -eq 1 ]]; then
+  stop_stack
+  ok "Services stopped"
+  exit 0
+fi
+
+if [[ "$DO_CLEAN" -eq 1 ]]; then
+  clean_local_artifacts
+  ok "Clean completed"
+  exit 0
+fi
+
+if [[ "$DO_RESET" -eq 1 ]]; then
+  header "Reset"
+  reset_stack "$REMOVE_VOLUMES"
+  start_stack "$BUILD" 0
+  run_health_suite
+  if [[ "$SEED_DEMO" -eq 1 ]]; then
+    seed_demo_data
+  fi
+  ok "Reset completed"
+  exit 0
+fi
+
+start_ts="$(date +%s)"
+run_prechecks
+
+services=()
+no_deps=0
+if [[ "$FRONTEND_ONLY" -eq 1 ]]; then
+  services=(frontend)
+  no_deps=1
+elif [[ "$BACKEND_ONLY" -eq 1 ]]; then
+  services=(mongo redis app celery-worker nginx syslog-receiver)
+fi
+
+if [[ "$DEBUG" -eq 1 ]]; then
+  header "Debug Mode"
+  info "Compose mode: $MODE"
+  info "Build enabled: $BUILD"
+  info "Services target: ${services[*]:-all}"
+fi
+
+start_stack "$BUILD" "$no_deps" "${services[@]}"
+hard_fail=0
+wait_for_core_services || hard_fail=1
+
+if [[ "$FRONTEND_ONLY" -ne 1 ]]; then
+  check_mongo || hard_fail=1
+  check_redis || hard_fail=1
+fi
+run_health_suite || hard_fail=1
+
+if [[ "$DEBUG" -eq 1 ]]; then
+  auto_detect_failures || hard_fail=1
+  show_status
+fi
+
+duration=$(( "$(date +%s)" - start_ts ))
+header "Startup Summary"
+info "Mode: $MODE"
+info "Frontend URL: http://127.0.0.1:8080"
+info "Backend URL: http://127.0.0.1"
+info "Elapsed: ${duration}s"
+if [[ "$hard_fail" -eq 1 ]]; then
+  fail "HARD FAIL: stack broken (strict health checks failed)"
+elif [[ "${HEALTH_WARN:-0}" -eq 1 ]]; then
+  warn "WARN: stack healthy with non-blocking route/auth warnings"
+else
+  ok "OK: stack healthy"
+fi
+info "Use ./start.sh --status or ./start.sh --logs"
