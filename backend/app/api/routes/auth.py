@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, status
+from fastapi import APIRouter, Depends, Request, status
 
 from app.api.dependencies import (
     Pagination,
@@ -28,8 +28,15 @@ async def register(user: UserRegister, _: None = Depends(auth_rate_limit)):
 
 
 @router.post("/login")
-async def login(user: UserLogin, _: None = Depends(auth_rate_limit)):
-    return await login_user(user)
+async def login(
+    user: UserLogin,
+    request: Request,
+    _: None = Depends(auth_rate_limit),
+):
+    return await login_user(
+        user,
+        source_ip=getattr(request.state, "client_ip", None),
+    )
 
 
 @router.post("/users", status_code=status.HTTP_201_CREATED)

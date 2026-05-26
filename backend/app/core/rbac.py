@@ -18,6 +18,8 @@ ROLE_PERMISSIONS = {
         "collectors:write",
         "users:read",
         "users:write",
+        "security:read",
+        "security:write",
     },
     UserRole.analyst.value: {
         "alerts:read",
@@ -30,6 +32,8 @@ ROLE_PERMISSIONS = {
         "copilot:query",
         "rules:read",
         "rules:write",
+        "security:read",
+        "security:write",
     },
     UserRole.viewer.value: {
         "alerts:read",
@@ -39,6 +43,7 @@ ROLE_PERMISSIONS = {
         "soar:read",
         "threat_hunting:read",
         "rules:read",
+        "security:read",
     },
 }
 

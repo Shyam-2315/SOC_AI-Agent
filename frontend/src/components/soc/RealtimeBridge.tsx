@@ -1,6 +1,6 @@
 import { useQueryClient } from "@tanstack/react-query";
 import { useEffect, useRef, useState } from "react";
-import { getToken, setWebsocketStatus, wsUrl } from "@/lib/api";
+import { getToken, onAuthChange, setWebsocketStatus, wsUrl } from "@/lib/api";
 import { applyRealtimeEventToCache, emitRealtimeEvent, type RealtimeEvent } from "@/lib/live-data";
 import { canQueryBackend } from "@/lib/presentation";
 
@@ -22,17 +22,19 @@ export function RealtimeBridge() {
   const reconnectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [reconnectAttempt, setReconnectAttempt] = useState(0);
   const [mounted, setMounted] = useState(false);
+  const [token, setTokenState] = useState<string | null>(() => getToken());
 
   useEffect(() => {
     setMounted(true);
   }, []);
 
+  useEffect(() => onAuthChange(() => setTokenState(getToken())), []);
+
   useEffect(() => {
     if (!mounted) return;
 
-    const token = getToken();
     if (!canQueryBackend() || !token) {
-      setWebsocketStatus("missing auth");
+      setWebsocketStatus(token ? "disabled" : "missing auth");
       return;
     }
 
@@ -73,11 +75,12 @@ export function RealtimeBridge() {
       if (socketRef.current === socket) {
         socketRef.current = null;
       }
-      if (!closedByEffect && getToken()) {
+      if (!closedByEffect && getToken() && ![1008, 1011].includes(socket.code)) {
         setWebsocketStatus("reconnecting");
+        const backoffMs = Math.min(30_000, 1_000 * 2 ** Math.min(reconnectAttempt, 4));
         reconnectTimerRef.current = setTimeout(() => {
           setReconnectAttempt((value) => value + 1);
-        }, 2500);
+        }, backoffMs);
       } else {
         setWebsocketStatus("disconnected");
       }
@@ -86,9 +89,10 @@ export function RealtimeBridge() {
     return () => {
       closedByEffect = true;
       if (reconnectTimerRef.current) clearTimeout(reconnectTimerRef.current);
+      reconnectTimerRef.current = null;
       socket.close();
     };
-  }, [mounted, queryClient, reconnectAttempt]);
+  }, [mounted, queryClient, reconnectAttempt, token]);
 
   return null;
 }

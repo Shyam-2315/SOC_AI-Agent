@@ -1,6 +1,7 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { type ReactNode, useState } from "react";
+import { AttackGraph } from "@/components/soc/AttackGraph";
 import { PageHeader } from "@/components/soc/PageHeader";
 import { Btn } from "@/components/soc/Btn";
 import { ClientDateTime } from "@/components/soc/ClientOnly";
@@ -57,6 +58,12 @@ function IncidentInvestigationPage() {
     enabled: canQueryBackend(),
     refetchInterval: POLL_INTERVALS.incidents,
   });
+  const attackGraph = useQuery({
+    queryKey: ["incidents", incidentId, "attack-graph"],
+    queryFn: () => backend.incidentAttackGraph(incidentId),
+    enabled: canQueryBackend(),
+    refetchInterval: POLL_INTERVALS.incidents,
+  });
   const [notes, setNotes] = useState<string | null>(null);
   const [assignee, setAssignee] = useState<string | null>(null);
 
@@ -68,6 +75,7 @@ function IncidentInvestigationPage() {
     }) => backend.updateIncident(incidentId, payload),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["incidents"] });
+      queryClient.invalidateQueries({ queryKey: ["incidents", incidentId, "attack-graph"] });
       queryClient.invalidateQueries({ queryKey: ["threat-hunting", "timeline", incidentId] });
       queryClient.invalidateQueries({ queryKey: ["soar", "actions", incidentId] });
     },
@@ -120,6 +128,7 @@ function IncidentInvestigationPage() {
   const summary = textValue(timeline.data?.summary ?? item.investigation_summary);
   const currentNotes = notes ?? textOf(item.investigation_notes ?? item.notes, "");
   const currentAssignee = assignee ?? textOf(item.assigned_to_email ?? item.assigned_to, "");
+  const graphData = attackGraph.data;
 
   return (
     <div className="space-y-6">
@@ -154,12 +163,21 @@ function IncidentInvestigationPage() {
                 incident.refetch();
                 timeline.refetch();
                 soar.refetch();
+                attackGraph.refetch();
               }}
-              disabled={incident.isFetching || timeline.isFetching || soar.isFetching}
+              disabled={
+                incident.isFetching ||
+                timeline.isFetching ||
+                soar.isFetching ||
+                attackGraph.isFetching
+              }
             >
               <RefreshCw
                 className={`h-4 w-4 ${
-                  incident.isFetching || timeline.isFetching || soar.isFetching
+                  incident.isFetching ||
+                  timeline.isFetching ||
+                  soar.isFetching ||
+                  attackGraph.isFetching
                     ? "animate-spin"
                     : ""
                 }`}
@@ -241,6 +259,21 @@ function IncidentInvestigationPage() {
                 mono
               />
             </div>
+          </SectionCard>
+
+          <SectionCard
+            title="Attack graph"
+            icon={<Network className="h-4 w-4" />}
+            isLoading={attackGraph.isLoading || attackGraph.isPending}
+            error={attackGraph.error ? errorMessage(attackGraph.error, "Attack graph could not be loaded.") : null}
+            onRetry={() => attackGraph.refetch()}
+            empty={
+              !graphData || (graphData.nodes.length === 0 && graphData.edges.length === 0)
+            }
+            emptyTitle="No graph data available for this incident."
+            emptyDescription="Graph relationships appear when alerts, infrastructure context, or SOAR actions are linked to the incident."
+          >
+            {graphData ? <AttackGraph graph={graphData} /> : null}
           </SectionCard>
 
           <SectionCard

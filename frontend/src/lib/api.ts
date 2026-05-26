@@ -7,6 +7,7 @@ const BASE_URL_KEY = "soc_api_base_url";
 const DEFAULT_API_BASE = "http://127.0.0.1";
 const API_DEBUG_EVENT = "soc-api-debug-change";
 const WS_DEBUG_EVENT = "soc-ws-debug-change";
+const AUTH_DEBUG_EVENT = "soc-auth-change";
 
 type ApiRequestInit = RequestInit & {
   collectorToken?: string;
@@ -110,6 +111,32 @@ export type IncidentRecord = BackendDocument & {
   updated_at?: string;
 };
 
+export type IncidentAttackGraphNode = {
+  id: string;
+  type:
+    | "source_ip"
+    | "endpoint"
+    | "host"
+    | "user"
+    | "alert"
+    | "incident"
+    | "soar_action"
+    | "mitre_technique";
+  label: string;
+  severity?: string | null;
+};
+
+export type IncidentAttackGraphEdge = {
+  source: string;
+  target: string;
+  label: string;
+};
+
+export type IncidentAttackGraphResponse = {
+  nodes: IncidentAttackGraphNode[];
+  edges: IncidentAttackGraphEdge[];
+};
+
 export type SoarActionRecord = BackendDocument & {
   incident_id?: string;
   alert_id?: string;
@@ -200,6 +227,53 @@ export type OrganizationRecord = BackendDocument & {
   name?: string;
   created_at?: string;
   created_by?: string;
+};
+
+export type SecurityDetectionRecord = BackendDocument & {
+  detection_type?: "dos" | "ddos";
+  event_type?: "dos_attack" | "ddos_attack";
+  title?: string;
+  severity?: string;
+  source_ip?: string;
+  target_path?: string;
+  reason?: string;
+  evidence?: {
+    request_count?: number;
+    error_count?: number;
+    unique_ip_count?: number;
+    time_window?: string;
+    endpoint?: string;
+  };
+  auto_block?: boolean;
+  alert_id?: string;
+  incident_id?: string | null;
+  created_at?: string;
+};
+
+export type SecurityBlockedIpRecord = {
+  ip_address: string;
+  reason?: string;
+  organization_id?: string | null;
+  blocked_by?: string;
+  blocked_at?: string;
+  expires_at?: string;
+  duration_minutes?: number;
+};
+
+export type SecurityTrafficSummary = {
+  requests_per_minute: number;
+  top_source_ips: { value: string; count: number }[];
+  targeted_endpoints: { value: string; count: number }[];
+  possible_dos_detections: SecurityDetectionRecord[];
+  possible_ddos_detections: SecurityDetectionRecord[];
+  recent_detections: SecurityDetectionRecord[];
+  auto_block_enabled: boolean;
+  thresholds: {
+    dos_ip_requests_per_minute: number;
+    dos_ip_errors_per_minute: number;
+    ddos_endpoint_requests_per_minute: number;
+    ddos_endpoint_unique_ips_per_minute: number;
+  };
 };
 
 export type ThreatStatistics = {
@@ -446,6 +520,13 @@ export function setToken(token: string | null) {
   if (typeof window === "undefined") return;
   if (token) localStorage.setItem(TOKEN_KEY, token);
   else localStorage.removeItem(TOKEN_KEY);
+  dispatchBrowserEvent(AUTH_DEBUG_EVENT);
+}
+
+export function onAuthChange(listener: () => void): () => void {
+  if (typeof window === "undefined") return () => undefined;
+  window.addEventListener(AUTH_DEBUG_EVENT, listener);
+  return () => window.removeEventListener(AUTH_DEBUG_EVENT, listener);
 }
 
 export function isAuthenticated(): boolean {
@@ -522,8 +603,13 @@ export async function api<T = unknown>(path: string, opts: ApiRequestInit = {}):
 
   if (!res.ok) {
     const fields = body && typeof body === "object" ? (body as Record<string, unknown>) : {};
-    const detail = fields.detail ?? fields.message;
+    const error = fields.error && typeof fields.error === "object" ? (fields.error as Record<string, unknown>) : null;
+    const detail = error?.message ?? fields.detail ?? fields.message;
     const message = typeof detail === "string" ? detail : `Request failed: ${res.status}`;
+    if (res.status === 401 && normalizedPath !== "/auth/login") {
+      setToken(null);
+      setWebsocketStatus("auth expired");
+    }
     rememberApiError({
       path: normalizedPath,
       status: res.status,
@@ -538,8 +624,9 @@ export async function api<T = unknown>(path: string, opts: ApiRequestInit = {}):
 
 export function wsUrl(path: string) {
   const token = getToken();
-  const sep = path.includes("?") ? "&" : "?";
-  return `${getWsBase()}${path}${token ? `${sep}token=${encodeURIComponent(token)}` : ""}`;
+  const normalizedPath = normalizePath(path);
+  const sep = normalizedPath.includes("?") ? "&" : "?";
+  return `${getWsBase()}${normalizedPath}${token ? `${sep}token=${encodeURIComponent(token)}` : ""}`;
 }
 
 export const backend = {
@@ -581,6 +668,8 @@ export const backend = {
   incidents: (params?: { limit?: number; offset?: number }) =>
     api<Paginated<IncidentRecord>>(withQuery("/incidents/", params)),
   incident: (id: string) => api<IncidentRecord>(`/incidents/${id}`),
+  incidentAttackGraph: (id: string) =>
+    api<IncidentAttackGraphResponse>(`/incidents/${id}/attack-graph`),
   createIncident: (payload: {
     title: string;
     description: string;
@@ -701,5 +790,17 @@ export const backend = {
     api<Record<string, unknown>>("/copilot/query", {
       method: "POST",
       body: JSON.stringify({ query }),
+    }),
+  securityTrafficSummary: () => api<SecurityTrafficSummary>("/security/traffic/summary"),
+  securityBlockedIps: () => api<{ items: SecurityBlockedIpRecord[] }>("/security/blocked-ips"),
+  securityBlockIp: (payload: { ip: string; reason?: string; duration_minutes?: number }) =>
+    api<{ message: string; item: SecurityBlockedIpRecord }>("/security/block-ip", {
+      method: "POST",
+      body: JSON.stringify(payload),
+    }),
+  securityUnblockIp: (payload: { ip: string }) =>
+    api<{ message: string; item: { ip_address: string; active: boolean } }>("/security/unblock-ip", {
+      method: "POST",
+      body: JSON.stringify(payload),
     }),
 };

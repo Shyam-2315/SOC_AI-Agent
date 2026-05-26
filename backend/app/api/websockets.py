@@ -1,10 +1,14 @@
 import json
+import time
 
 from fastapi import WebSocket, WebSocketDisconnect
 
 from app.api.dependencies import get_websocket_user
+from app.core.logging import get_logger
 from app.realtime.events import build_system_message
 from app.realtime.manager import manager
+
+logger = get_logger(__name__)
 
 
 def _system_event(
@@ -26,7 +30,11 @@ async def websocket_alerts(websocket: WebSocket) -> None:
         return
 
     organization_id = user["organization_id"]
-    session = await manager.connect(websocket, organization_id)
+    session = await manager.connect(
+        websocket,
+        organization_id,
+        token_expires_at=user.get("token_expires_at"),
+    )
     await session.send_queue.put(
         _system_event(
             organization_id=organization_id,
@@ -40,6 +48,9 @@ async def websocket_alerts(websocket: WebSocket) -> None:
 
     try:
         while True:
+            if session.token_expires_at is not None and session.token_expires_at <= int(time.time()):
+                await websocket.close(code=1008)
+                break
             raw_message = await websocket.receive_text()
             await _handle_client_message(
                 raw_message=raw_message,
@@ -47,6 +58,13 @@ async def websocket_alerts(websocket: WebSocket) -> None:
                 session=session,
             )
     except WebSocketDisconnect:
+        pass
+    except Exception:
+        logger.exception(
+            "websocket session failed",
+            extra={"organization_id": organization_id, "connection_id": session.connection_id},
+        )
+    finally:
         manager.disconnect(session)
 
 

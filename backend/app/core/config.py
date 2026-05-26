@@ -146,6 +146,13 @@ class Settings:
     syslog_collector_token: Optional[str]
     auth_rate_limit_per_minute: int
     ingestion_rate_limit_per_minute: int
+    rate_limit_window_seconds: int
+    request_max_body_bytes: int
+    dos_ip_requests_per_minute: int
+    dos_ip_errors_per_minute: int
+    ddos_endpoint_requests_per_minute: int
+    ddos_endpoint_unique_ips_per_minute: int
+    auto_block_dos_ips: bool
 
     @property
     def is_production(self) -> bool:
@@ -290,6 +297,29 @@ settings = Settings(
         120,
         minimum=1,
     ),
+    rate_limit_window_seconds=_int_env("RATE_LIMIT_WINDOW_SECONDS", 60, minimum=1),
+    request_max_body_bytes=_int_env("REQUEST_MAX_BODY_BYTES", 1_048_576, minimum=1024),
+    dos_ip_requests_per_minute=_int_env(
+        "DOS_IP_REQUESTS_PER_MINUTE",
+        100,
+        minimum=1,
+    ),
+    dos_ip_errors_per_minute=_int_env(
+        "DOS_IP_ERRORS_PER_MINUTE",
+        30,
+        minimum=1,
+    ),
+    ddos_endpoint_requests_per_minute=_int_env(
+        "DDOS_ENDPOINT_REQUESTS_PER_MINUTE",
+        1000,
+        minimum=1,
+    ),
+    ddos_endpoint_unique_ips_per_minute=_int_env(
+        "DDOS_ENDPOINT_UNIQUE_IPS_PER_MINUTE",
+        50,
+        minimum=1,
+    ),
+    auto_block_dos_ips=_bool_env("AUTO_BLOCK_DOS_IPS", False),
 )
 
 settings.validate()

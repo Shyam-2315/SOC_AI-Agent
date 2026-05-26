@@ -15,6 +15,7 @@ import { Route as IndexRouteImport } from './routes/index'
 import { Route as AppUsersRouteImport } from './routes/_app.users'
 import { Route as AppSoarRouteImport } from './routes/_app.soar'
 import { Route as AppRulesRouteImport } from './routes/_app.rules'
+import { Route as AppSecurityRouteImport } from './routes/_app.security'
 import { Route as AppRealtimeRouteImport } from './routes/_app.realtime'
 import { Route as AppPacksRouteImport } from './routes/_app.packs'
 import { Route as AppOrgsRouteImport } from './routes/_app.orgs'
@@ -55,6 +56,11 @@ const AppSoarRoute = AppSoarRouteImport.update({
 const AppRulesRoute = AppRulesRouteImport.update({
   id: '/rules',
   path: '/rules',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppSecurityRoute = AppSecurityRouteImport.update({
+  id: '/security',
+  path: '/security',
   getParentRoute: () => AppRoute,
 } as any)
 const AppRealtimeRoute = AppRealtimeRouteImport.update({
@@ -133,6 +139,7 @@ export interface FileRoutesByFullPath {
   '/packs': typeof AppPacksRoute
   '/realtime': typeof AppRealtimeRoute
   '/rules': typeof AppRulesRoute
+  '/security': typeof AppSecurityRoute
   '/soar': typeof AppSoarRoute
   '/users': typeof AppUsersRoute
   '/incidents/$incidentId': typeof AppIncidentsIncidentIdRoute
@@ -152,6 +159,7 @@ export interface FileRoutesByTo {
   '/packs': typeof AppPacksRoute
   '/realtime': typeof AppRealtimeRoute
   '/rules': typeof AppRulesRoute
+  '/security': typeof AppSecurityRoute
   '/soar': typeof AppSoarRoute
   '/users': typeof AppUsersRoute
   '/incidents/$incidentId': typeof AppIncidentsIncidentIdRoute
@@ -173,6 +181,7 @@ export interface FileRoutesById {
   '/_app/packs': typeof AppPacksRoute
   '/_app/realtime': typeof AppRealtimeRoute
   '/_app/rules': typeof AppRulesRoute
+  '/_app/security': typeof AppSecurityRoute
   '/_app/soar': typeof AppSoarRoute
   '/_app/users': typeof AppUsersRoute
   '/_app/incidents/$incidentId': typeof AppIncidentsIncidentIdRoute
@@ -194,6 +203,7 @@ export interface FileRouteTypes {
     | '/packs'
     | '/realtime'
     | '/rules'
+    | '/security'
     | '/soar'
     | '/users'
     | '/incidents/$incidentId'
@@ -213,6 +223,7 @@ export interface FileRouteTypes {
     | '/packs'
     | '/realtime'
     | '/rules'
+    | '/security'
     | '/soar'
     | '/users'
     | '/incidents/$incidentId'
@@ -400,6 +411,7 @@ interface AppRouteChildren {
   AppPacksRoute: typeof AppPacksRoute
   AppRealtimeRoute: typeof AppRealtimeRoute
   AppRulesRoute: typeof AppRulesRoute
+  AppSecurityRoute: typeof AppSecurityRoute
   AppSoarRoute: typeof AppSoarRoute
   AppUsersRoute: typeof AppUsersRoute
   AppThreatHuntingTimelineIncidentIdRoute: typeof AppThreatHuntingTimelineIncidentIdRoute
@@ -417,6 +429,7 @@ const AppRouteChildren: AppRouteChildren = {
   AppPacksRoute: AppPacksRoute,
   AppRealtimeRoute: AppRealtimeRoute,
   AppRulesRoute: AppRulesRoute,
+  AppSecurityRoute: AppSecurityRoute,
   AppSoarRoute: AppSoarRoute,
   AppUsersRoute: AppUsersRoute,
   AppThreatHuntingTimelineIncidentIdRoute:

@@ -93,8 +93,9 @@ def require_permission(permission: str):
 
 def auth_rate_limit(request: Request) -> None:
     check_rate_limit(
-        key=f"auth:{client_ip(request)}",
+        key=f"auth:{request.url.path}:{client_ip(request)}",
         limit=settings.auth_rate_limit_per_minute,
+        window_seconds=settings.rate_limit_window_seconds,
     )
 
 
@@ -104,6 +105,7 @@ def ingestion_rate_limit(request: Request) -> None:
     check_rate_limit(
         key=f"ingest:{key}",
         limit=settings.ingestion_rate_limit_per_minute,
+        window_seconds=settings.rate_limit_window_seconds,
     )
 
 
@@ -135,8 +137,9 @@ def get_collector_organization_id(
 async def get_websocket_user(websocket: WebSocket):
     origin = websocket.headers.get("origin")
     if origin and origin not in settings.cors_origins:
-        await websocket.close(code=status.WS_1008_POLICY_VIOLATION)
-        return None
+        if settings.is_production or not origin.startswith(("http://localhost:", "http://127.0.0.1:", "https://localhost:", "https://127.0.0.1:")):
+            await websocket.close(code=status.WS_1008_POLICY_VIOLATION)
+            return None
 
     token = websocket.query_params.get("token")
     if not token:
@@ -151,7 +154,11 @@ async def get_websocket_user(websocket: WebSocket):
 
     try:
         claims = verify_token(token)
-        return await _load_current_user_from_claims(claims)
+        user = await _load_current_user_from_claims(claims)
+        exp = claims.get("exp")
+        if exp is not None:
+            user["token_expires_at"] = exp
+        return user
     except HTTPException:
         await websocket.close(code=status.WS_1008_POLICY_VIOLATION)
         return None

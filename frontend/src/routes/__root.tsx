@@ -9,6 +9,7 @@ import {
   Scripts,
 } from "@tanstack/react-router";
 import { useEffect } from "react";
+import { Toaster } from "@/components/ui/sonner";
 
 import appCss from "../styles.css?url";
 
@@ -40,10 +41,12 @@ function ErrorComponent({ error, reset }: { error: unknown; reset: () => void })
   const message = error instanceof Error ? error.message : "Unexpected route render error";
 
   useEffect(() => {
-    console.error("Route/component render error", {
-      pathname,
-      error,
-    });
+    if (import.meta.env.DEV) {
+      console.error("Route/component render error", {
+        pathname,
+        error,
+      });
+    }
   }, [error, pathname]);
 
   return (
@@ -85,14 +88,14 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
     meta: [
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
-      { title: "Lovable App" },
-      { name: "description", content: "Lovable Generated Project" },
-      { name: "author", content: "Lovable" },
-      { property: "og:title", content: "Lovable App" },
-      { property: "og:description", content: "Lovable Generated Project" },
+      { title: "AI SOC Platform" },
+      { name: "description", content: "AI SOC Platform security operations console" },
+      { name: "author", content: "AI SOC Platform" },
+      { property: "og:title", content: "AI SOC Platform" },
+      { property: "og:description", content: "AI SOC Platform security operations console" },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary" },
-      { name: "twitter:site", content: "@Lovable" },
+      { name: "twitter:site", content: "@aisoc" },
     ],
     links: [
       {
@@ -132,6 +135,7 @@ function RootComponent() {
   return (
     <QueryClientProvider client={queryClient}>
       <Outlet />
+      <Toaster richColors position="top-right" />
     </QueryClientProvider>
   );
 }

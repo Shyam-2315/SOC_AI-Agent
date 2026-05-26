@@ -11,7 +11,12 @@ from app.api.websockets import websocket_alerts
 from app.core.config import settings
 from app.core.exceptions import register_exception_handlers
 from app.core.logging import configure_logging, get_logger
-from app.core.middleware import RequestContextMiddleware, SecurityHeadersMiddleware
+from app.core.middleware import (
+    RequestContextMiddleware,
+    RequestSizeLimitMiddleware,
+    SecurityHeadersMiddleware,
+    TrafficProtectionMiddleware,
+)
 from app.core.startup import validate_startup_dependencies
 from app.db.client import close_database
 from app.db.indexes import create_indexes
@@ -62,6 +67,8 @@ def create_app() -> FastAPI:
     )
 
     app.add_middleware(RequestContextMiddleware)
+    app.add_middleware(RequestSizeLimitMiddleware, settings=settings)
+    app.add_middleware(TrafficProtectionMiddleware)
     app.add_middleware(SecurityHeadersMiddleware, settings=settings)
     app.add_middleware(
         TrustedHostMiddleware,

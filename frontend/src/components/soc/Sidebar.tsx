@@ -14,6 +14,7 @@ import {
   Activity,
   Database,
   ShieldCheck,
+  Shield,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -28,6 +29,7 @@ const groups: { label: string; items: { to: string; label: string; icon: React.E
         { to: "/soar", label: "SOAR Actions", icon: Zap },
         { to: "/hunting", label: "Threat Hunting", icon: Crosshair },
         { to: "/realtime", label: "Realtime Feed", icon: Activity },
+        { to: "/security", label: "Traffic Security", icon: Shield },
       ],
     },
     {

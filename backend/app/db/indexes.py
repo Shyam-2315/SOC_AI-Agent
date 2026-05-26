@@ -12,6 +12,8 @@ from app.db.client import (
     logs_collection,
     organizations_collection,
     response_actions_collection,
+    security_blocks_collection,
+    security_detections_collection,
     users_collection,
 )
 
@@ -68,17 +70,54 @@ async def create_indexes() -> None:
     await alerts_collection.create_index(
         [("organization_id", ASCENDING), ("event_type", ASCENDING), ("record_id", ASCENDING)]
     )
+    await alerts_collection.create_index(
+        [("organization_id", ASCENDING), ("correlation_id", ASCENDING)]
+    )
+    await alerts_collection.create_index(
+        [("organization_id", ASCENDING), ("matched_rule_id", ASCENDING)]
+    )
     await incidents_collection.create_index(
         [("organization_id", ASCENDING), ("timestamp", DESCENDING)]
     )
     await incidents_collection.create_index(
         [("organization_id", ASCENDING), ("status", ASCENDING)]
     )
+    await incidents_collection.create_index(
+        [("organization_id", ASCENDING), ("severity", ASCENDING), ("timestamp", DESCENDING)]
+    )
+    await incidents_collection.create_index(
+        [("organization_id", ASCENDING), ("alert_id", ASCENDING)]
+    )
+    await incidents_collection.create_index(
+        [("organization_id", ASCENDING), ("correlation_id", ASCENDING)]
+    )
+    await incidents_collection.create_index(
+        [
+            ("organization_id", ASCENDING),
+            ("security_detection_type", ASCENDING),
+            ("security_source_ip", ASCENDING),
+            ("status", ASCENDING),
+        ]
+    )
+    await incidents_collection.create_index(
+        [
+            ("organization_id", ASCENDING),
+            ("security_detection_type", ASCENDING),
+            ("security_target_path", ASCENDING),
+            ("status", ASCENDING),
+        ]
+    )
     await response_actions_collection.create_index(
         [("organization_id", ASCENDING), ("timestamp", DESCENDING)]
     )
     await response_actions_collection.create_index(
         [("organization_id", ASCENDING), ("ip_address", ASCENDING)]
+    )
+    await response_actions_collection.create_index(
+        [("organization_id", ASCENDING), ("incident_id", ASCENDING), ("timestamp", DESCENDING)]
+    )
+    await response_actions_collection.create_index(
+        [("organization_id", ASCENDING), ("alert_id", ASCENDING), ("timestamp", DESCENDING)]
     )
     await alert_processing_jobs_collection.create_index(
         [("task_id", ASCENDING)],
@@ -127,6 +166,9 @@ async def create_indexes() -> None:
         [("organization_id", ASCENDING), ("created_at", DESCENDING)]
     )
     await collectors_collection.create_index(
+        [("organization_id", ASCENDING), ("last_seen_at", DESCENDING)]
+    )
+    await collectors_collection.create_index(
         [("organization_id", ASCENDING), ("name", ASCENDING)],
         unique=True,
     )
@@ -139,4 +181,26 @@ async def create_indexes() -> None:
     )
     await correlated_incidents_collection.create_index(
         [("organization_id", ASCENDING), ("incident_id", ASCENDING)]
+    )
+    await security_detections_collection.create_index(
+        [("organization_id", ASCENDING), ("created_at", DESCENDING)]
+    )
+    await security_detections_collection.create_index(
+        [("organization_id", ASCENDING), ("event_type", ASCENDING), ("created_at", DESCENDING)]
+    )
+    await security_detections_collection.create_index(
+        [("detection_type", ASCENDING), ("target_path", ASCENDING), ("created_at", DESCENDING)]
+    )
+    await security_detections_collection.create_index(
+        [("source_ip", ASCENDING), ("created_at", DESCENDING)]
+    )
+    await security_blocks_collection.create_index(
+        [("ip_address", ASCENDING)],
+        unique=True,
+    )
+    await security_blocks_collection.create_index(
+        [("active", ASCENDING), ("expires_at", ASCENDING)]
+    )
+    await security_blocks_collection.create_index(
+        [("organization_id", ASCENDING), ("blocked_at", DESCENDING)]
     )

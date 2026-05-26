@@ -1,6 +1,7 @@
 import asyncio
 from collections import defaultdict
 from dataclasses import dataclass, field
+import time
 from typing import DefaultDict
 from uuid import uuid4
 
@@ -18,6 +19,7 @@ class ConnectionSession:
     connection_id: str
     organization_id: str
     websocket: WebSocket
+    token_expires_at: int | None = None
     subscriptions: set[str] = field(default_factory=lambda: {"*"})
     send_queue: asyncio.Queue[dict] = field(
         default_factory=lambda: asyncio.Queue(maxsize=settings.websocket_send_queue_size)
@@ -35,12 +37,14 @@ class ConnectionManager:
         self,
         websocket: WebSocket,
         organization_id: str,
+        token_expires_at: int | None = None,
     ) -> ConnectionSession:
         await websocket.accept()
         session = ConnectionSession(
             connection_id=str(uuid4()),
             organization_id=organization_id,
             websocket=websocket,
+            token_expires_at=token_expires_at,
         )
         session.writer_task = asyncio.create_task(self._writer(session))
         self.active_connections[organization_id][session.connection_id] = session
@@ -108,14 +112,18 @@ class ConnectionManager:
         for session in self.active_connections.get(organization_id, {}).values():
             if not self._is_subscribed(session, event_type):
                 continue
+            if session.token_expires_at is not None:
+                if session.token_expires_at <= int(time.time()):
+                    stale_connections.append(session)
+                    continue
             try:
                 session.send_queue.put_nowait(event)
-            except Exception:
+            except asyncio.QueueFull:
                 stale_connections.append(session)
 
         for session in stale_connections:
             logger.warning(
-                "disconnecting websocket due to send queue pressure",
+                "disconnecting stale websocket session",
                 extra={
                     "organization_id": organization_id,
                     "connection_id": session.connection_id,

@@ -140,8 +140,8 @@ export function invalidateLiveData(queryClient: QueryClient) {
   queryClient.invalidateQueries({ queryKey: ["logs"] });
   queryClient.invalidateQueries({ queryKey: ["alerts"] });
   queryClient.invalidateQueries({ queryKey: ["incidents"] });
-  queryClient.invalidateQueries({ queryKey: ["soar-actions"] });
-  queryClient.invalidateQueries({ queryKey: ["blocked-ips"] });
+  queryClient.invalidateQueries({ queryKey: ["soar"] });
+  queryClient.invalidateQueries({ queryKey: ["security"] });
   queryClient.invalidateQueries({ queryKey: ["collectors"] });
   queryClient.invalidateQueries({ queryKey: ["dashboard"] });
   queryClient.invalidateQueries({ queryKey: ["realtime"] });
@@ -184,10 +184,11 @@ export function applyRealtimeEventToCache(queryClient: QueryClient, event: Realt
     const action = soarActionFromRealtimeEvent(event);
     updatePaginatedQueries(
       queryClient,
-      [["soar-actions"], ["dashboard", "soar-actions"], ["realtime", "actions"]],
+      [["soar", "actions"], ["dashboard", "soar-actions"], ["realtime", "actions"]],
       action,
     );
-    queryClient.invalidateQueries({ queryKey: ["blocked-ips"] });
+    queryClient.invalidateQueries({ queryKey: ["soar"] });
+    queryClient.invalidateQueries({ queryKey: ["security"] });
     queryClient.invalidateQueries({ queryKey: ["dashboard"] });
   }
 }

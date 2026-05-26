@@ -54,6 +54,7 @@ The platform provides:
 - **Smart Alert Routing** - Intelligent grouping and correlation
 - **Real-time Alerts** - WebSocket-based live alert streaming
 - **Incident Lifecycle** - Investigation, closure, and audit trails
+- **Attack Graph Visualization** - Incident-level graphing across IPs, hosts, endpoints, alerts, MITRE, and SOAR actions
 - **Alert Status Tracking** - Open, acknowledged, resolved states
 - **Custom Detection Rules** - Rule builder with field-based conditions
 
@@ -75,6 +76,8 @@ The platform provides:
 - **Multi-Tenant Isolation** - Complete data separation per organization
 - **Collector Token Auth** - Secure agent registration and ingestion
 - **Rate Limiting** - Per-minute limits on auth and ingestion
+- **DoS/DDoS Traffic Detection** - Request-rate, error-rate, and endpoint fan-out monitoring
+- **Safe Internal Blocking** - Application-level IP blocklist with optional auto-blocking
 
 ### 📊 Integration & Data Collection
 - **Collector Framework** - Agent-based log collection
@@ -256,6 +259,21 @@ docker compose logs -f redis
 docker compose down
 docker compose down -v
 ```
+
+## 🕸️ Attack Graph Visualization
+
+Incident Investigation now includes an **Attack Graph** section that reconstructs relationships from correlated alerts, source IPs, hosts or endpoints, usernames, MITRE ATT&CK mappings, SOAR actions, and threat-hunting timeline context.
+
+- **Brute force pathing**: `IP -> Host -> User -> Alert -> Incident`
+- **DoS/DDoS pathing**: `IP -> Endpoint -> Alert -> Incident -> SOAR`
+- **Empty-state support**: incidents without relationship data show `No graph data available for this incident.`
+
+### Screenshot Checklist
+
+- Incident investigation page with the **Attack Graph** section visible
+- DoS/DDoS example showing `source_ip`, `endpoint`, `alert`, `incident`, and `soar_action`
+- Brute force example showing `source_ip`, `host`, `user`, `alert`, and `incident`
+- MITRE technique node attached in the graph when mappings are present
 
 ### Collector Lifecycle (Windows + Linux)
 
@@ -537,6 +555,13 @@ ACCESS_TOKEN_EXPIRE_MINUTES=480
 COLLECTOR_API_KEYS=test-collector-token
 COLLECTOR_BATCH_MAX_SIZE=100
 
+# DoS / DDoS protection
+DOS_IP_REQUESTS_PER_MINUTE=100
+DOS_IP_ERRORS_PER_MINUTE=30
+DDOS_ENDPOINT_REQUESTS_PER_MINUTE=1000
+DDOS_ENDPOINT_UNIQUE_IPS_PER_MINUTE=50
+AUTO_BLOCK_DOS_IPS=false
+
 # Frontend
 VITE_API_BASE_URL=http://localhost
 VITE_WS_BASE_URL=ws://localhost
@@ -553,6 +578,86 @@ DEMO_ADMIN_PASSWORD=DemoAdmin123!
 ```
 
 See `backend/.env.example` for the complete configuration reference.
+
+### DoS / DDoS Detection Architecture
+
+The platform now includes a traffic security layer for **safe, internal DoS/DDoS detection and blocking**:
+
+- Every HTTP request is tracked with source IP, path, method, status code, user agent, and tenant when available
+- Redis-backed 1-minute counters detect:
+  - single-IP request floods
+  - single-IP error-rate abuse
+  - endpoint request spikes
+  - many unique IPs targeting the same endpoint
+- Detections create:
+  - SOC alerts
+  - incidents
+  - SOAR response actions
+  - realtime events
+- Blocking is **application-level only**
+  - no `iptables`
+  - no OS firewall mutation
+  - health endpoints remain accessible even for blocked IPs
+
+Tracked Redis keys:
+
+```text
+traffic:ip:{source_ip}:1m
+traffic:ip:{source_ip}:errors:1m
+traffic:endpoint:{path}:1m
+traffic:endpoint:{path}:unique_ips
+blocklist:ip:{ip}
+```
+
+Security APIs:
+
+```text
+GET  /security/traffic/summary
+GET  /security/blocked-ips
+POST /security/block-ip
+POST /security/unblock-ip
+```
+
+Compatibility aliases are also exposed under `/api/v1/security/...`.
+
+### DoS / DDoS Demo
+
+Example single-IP flood simulation against the existing health endpoint:
+
+```bash
+for i in {1..120}; do curl -s http://localhost/health > /dev/null; done
+```
+
+Expected result:
+
+- traffic counters increase
+- a `dos_attack` alert appears
+- a DoS incident is created
+- a SOAR block recommendation appears
+- if `AUTO_BLOCK_DOS_IPS=true`, the source IP is internally blocked for 15 minutes
+
+Example endpoint fan-out simulation:
+
+```bash
+for ip in 10.0.0.11 10.0.0.12 10.0.0.13 10.0.0.14; do
+  curl -s http://localhost/alerts/ -H "X-Forwarded-For: $ip" > /dev/null
+done
+```
+
+Expected result:
+
+- targeted endpoint counters increase
+- a `ddos_attack` alert appears
+- a `DDoS Activity Targeting /alerts/` incident is created
+- the security dashboard shows the targeted endpoint and recent detections
+
+### Screenshot Checklist
+
+- Traffic Security page with requests/minute and top source IPs
+- Recent DoS detection with evidence counts
+- Recent DDoS detection with targeted endpoint
+- Blocked IP list
+- SOAR action showing recommended or simulated IP block
 
 ### Docker Compose Files
 

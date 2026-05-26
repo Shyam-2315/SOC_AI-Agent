@@ -62,6 +62,7 @@ async def publish_realtime_event(
                 "event_type": event.get("event_type"),
             },
         )
+        await manager.publish(event)
 
 
 async def run_realtime_event_listener(stop_event: asyncio.Event) -> None:

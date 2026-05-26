@@ -8,11 +8,17 @@ from app.core.config import Settings
 
 
 request_id_context: ContextVar[str] = ContextVar("request_id", default="-")
+organization_id_context: ContextVar[str] = ContextVar("organization_id", default="-")
+client_ip_context: ContextVar[str] = ContextVar("client_ip", default="-")
 
 
 class RequestContextFilter(logging.Filter):
     def filter(self, record: logging.LogRecord) -> bool:
         record.request_id = request_id_context.get()
+        if getattr(record, "organization_id", None) is None:
+            record.organization_id = organization_id_context.get()
+        if getattr(record, "client_ip", None) is None:
+            record.client_ip = client_ip_context.get()
         return True
 
 
@@ -32,6 +38,7 @@ class JsonFormatter(logging.Formatter):
             "status_code",
             "duration_ms",
             "client_ip",
+            "source_ip",
             "environment",
             "user_id",
             "organization_id",

@@ -84,7 +84,6 @@ function IncidentsPage() {
     if (!id) {
       const message =
         "Cannot update incident status because the backend record has no incident ID.";
-      console.error(message, incident);
       setIncidentActionError(message);
       return;
     }
@@ -96,7 +95,6 @@ function IncidentsPage() {
     const id = incidentRecordId(incident);
     if (!id) {
       const message = "Cannot investigate incident because the backend record has no incident ID.";
-      console.error(message, incident);
       setIncidentActionError(message);
       return;
     }
