@@ -97,7 +97,7 @@ function Login() {
   }
 
   return (
-    <div className="grid min-h-screen lg:grid-cols-2 bg-gradient-hero">
+    <div className="grid min-h-screen bg-gradient-hero lg:grid-cols-2" data-testid="login-page">
       <div className="hidden flex-col justify-between border-r border-border bg-card/30 p-10 lg:flex">
         <div className="flex items-center gap-2">
           <div className="grid h-9 w-9 place-items-center rounded-lg bg-gradient-primary shadow-glow">

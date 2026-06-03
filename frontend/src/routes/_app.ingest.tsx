@@ -62,7 +62,7 @@ function IngestPage() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6" data-testid="ingest-page">
       <PageHeader
         eyebrow="Detection"
         title="Log Ingestion"

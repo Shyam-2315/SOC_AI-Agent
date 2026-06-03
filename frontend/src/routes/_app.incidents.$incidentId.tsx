@@ -2,6 +2,7 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { type ReactNode, useState } from "react";
 import { AttackGraph } from "@/components/soc/AttackGraph";
+import { IncidentAiPanel } from "@/components/soc/AiCopilotPanels";
 import { PageHeader } from "@/components/soc/PageHeader";
 import { Btn } from "@/components/soc/Btn";
 import { ClientDateTime } from "@/components/soc/ClientOnly";
@@ -75,6 +76,7 @@ function IncidentInvestigationPage() {
     }) => backend.updateIncident(incidentId, payload),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["incidents"] });
+      queryClient.invalidateQueries({ queryKey: ["incidents", incidentId] });
       queryClient.invalidateQueries({ queryKey: ["incidents", incidentId, "attack-graph"] });
       queryClient.invalidateQueries({ queryKey: ["threat-hunting", "timeline", incidentId] });
       queryClient.invalidateQueries({ queryKey: ["soar", "actions", incidentId] });
@@ -131,7 +133,7 @@ function IncidentInvestigationPage() {
   const graphData = attackGraph.data;
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6" data-testid="incident-detail-page">
       <PageHeader
         eyebrow="Investigation"
         title={textOf(item.title, "Incident investigation")}
@@ -317,6 +319,8 @@ function IncidentInvestigationPage() {
         </section>
 
         <aside className="space-y-4">
+          <IncidentAiPanel incidentId={incidentId} />
+
           <div className="rounded-xl border border-border bg-card p-4 shadow-card">
             <div className="text-sm font-semibold">Analyst notes and status</div>
             <label className="mt-3 block text-xs text-muted-foreground">Status</label>

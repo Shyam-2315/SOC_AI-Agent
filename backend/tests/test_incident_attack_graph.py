@@ -1,7 +1,7 @@
 import unittest
 from datetime import datetime, timezone
 
-from app.services.attack_graphs import build_attack_graph
+from app.services.attack_graph_service import build_attack_graph
 
 
 class IncidentAttackGraphTests(unittest.TestCase):
@@ -34,6 +34,7 @@ class IncidentAttackGraphTests(unittest.TestCase):
             }
         )
 
+        self.assertEqual(graph.incident_id, "incident-1")
         node_types = {node.type for node in graph.nodes}
         edge_types = {(edge.source, edge.target, edge.label) for edge in graph.edges}
 
@@ -43,8 +44,25 @@ class IncidentAttackGraphTests(unittest.TestCase):
         self.assertTrue(any(label == "triggered" for _, _, label in edge_types))
         self.assertTrue(any(label == "correlated" for _, _, label in edge_types))
         self.assertTrue(any(label == "response" for _, _, label in edge_types))
+        self.assertTrue(any(node.metadata.get("path") == "/health/ready" for node in graph.nodes if node.type == "endpoint"))
 
-    def test_brute_force_incident_graph_contains_source_ip_host_user_alert_incident(self):
+    def test_incident_without_alerts_still_returns_incident_node(self):
+        graph = build_attack_graph(
+            {
+                "_id": "incident-empty",
+                "title": "Standalone Incident",
+                "severity": "medium",
+                "status": "new",
+            }
+        )
+
+        self.assertEqual(graph.incident_id, "incident-empty")
+        self.assertEqual(len(graph.nodes), 1)
+        self.assertEqual(graph.nodes[0].type, "incident")
+        self.assertEqual(graph.nodes[0].metadata.get("status"), "new")
+        self.assertEqual(graph.edges, [])
+
+    def test_mitre_technique_node_appears_when_mapping_present(self):
         graph = build_attack_graph(
             {
                 "_id": "incident-2",
@@ -81,7 +99,7 @@ class IncidentAttackGraphTests(unittest.TestCase):
         node_types = {node.type for node in graph.nodes}
         labels = {edge.label for edge in graph.edges}
 
-        self.assertTrue({"source_ip", "host", "user", "alert", "incident"}.issubset(node_types))
+        self.assertTrue({"source_ip", "host", "user", "alert", "incident", "mitre_technique"}.issubset(node_types))
         self.assertIn("mitre_technique", node_types)
         self.assertIn("targeted", labels)
         self.assertIn("attempted", labels)

@@ -3,7 +3,7 @@ from fastapi import APIRouter, Depends
 from app.api.dependencies import Pagination, pagination_params, require_permission
 from app.schemas.attack_graph import AttackGraphResponse
 from app.schemas.incident import IncidentCreate, IncidentUpdate
-from app.services.attack_graphs import get_incident_attack_graph
+from app.services.attack_graph_service import get_incident_attack_graph
 from app.services.incidents import (
     create_incident,
     get_incident,

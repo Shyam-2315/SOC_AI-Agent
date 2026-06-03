@@ -49,6 +49,7 @@ The platform provides:
 - **Campaign Detection** - Identify coordinated attack patterns
 - **MITRE ATT&CK Mapping** - Automatic tactic and technique mapping
 - **Threat Intelligence Correlation** - External threat intel integration
+- **AI Security Copilot Core** - Deterministic alert triage, incident summaries, false-positive scoring, recommended actions, and natural-language SOC query parsing without external AI APIs
 
 ### 🎯 Alert & Incident Management
 - **Smart Alert Routing** - Intelligent grouping and correlation
@@ -260,20 +261,71 @@ docker compose down
 docker compose down -v
 ```
 
+## AI Security Copilot Phase 1
+
+The Phase 1 copilot is deterministic and explainable. It does not call external AI APIs. It scores and summarizes from tenant-scoped alerts, incidents, MITRE mappings, SOAR history, and block context already stored by the platform.
+
+### Features
+
+- Alert triage with `risk_score`, priority, reasoning, recommended action, and MITRE mappings
+- Incident summary with executive summary, root-cause guess, affected assets, attack timeline, recommended actions, and analyst next steps
+- False-positive scoring with confidence, reasons, and suggested status
+- Recommended incident actions: `block_ip`, `isolate_host`, `escalate_to_admin`, `monitor_only`, `close_false_positive`, `open_investigation`, `run_threat_hunt`
+- Natural-language SOC query parser for failed logins, high-severity alerts, recent incidents, blocked IPs, DoS/DDoS activity, host alerts, and MITRE technique activity
+
+### Endpoints
+
+- `GET /api/ai/alerts/{alert_id}/triage`
+- `GET /api/ai/alerts/{alert_id}/false-positive-score`
+- `GET /api/ai/incidents/{incident_id}/summary`
+- `GET /api/ai/incidents/{incident_id}/recommended-actions`
+- `POST /api/ai/copilot/query`
+
+All endpoints require JWT authentication and enforce organization isolation through the authenticated user's `organization_id`.
+
+### Test Commands
+
+```bash
+cd backend && python -m pytest tests/test_ai_copilot.py
+cd frontend && npm test -- --run src/lib/api.test.ts src/routes/_app.copilot.test.tsx src/components/soc/AiCopilotPanels.test.tsx
+```
+
+### Demo Script
+
+1. Sign in as an analyst or admin.
+2. Open Copilot and click `Show failed logins`.
+3. Review the parsed intent, filters, suggested backend query, explanation, and preview.
+4. Open Alerts and review the AI alert triage panel for the latest alert.
+5. Open an incident detail page and review the AI incident summary and recommended actions.
+
 ## 🕸️ Attack Graph Visualization
 
-Incident Investigation now includes an **Attack Graph** section that reconstructs relationships from correlated alerts, source IPs, hosts or endpoints, usernames, MITRE ATT&CK mappings, SOAR actions, and threat-hunting timeline context.
+Incident Investigation includes an **Attack Graph** section that reconstructs deterministic relationships from existing incident data. It helps analysts quickly understand how a source IP, target host or endpoint, alert chain, incident record, MITRE mapping, and SOAR response are connected.
 
-- **Brute force pathing**: `IP -> Host -> User -> Alert -> Incident`
-- **DoS/DDoS pathing**: `IP -> Endpoint -> Alert -> Incident -> SOAR`
-- **Empty-state support**: incidents without relationship data show `No graph data available for this incident.`
+Purpose:
+
+- Visualize investigation context without changing the incident model
+- Make DoS/DDoS response flow easy to inspect from the incident page
+- Show how alerts, infrastructure context, MITRE techniques, and SOAR actions relate
+
+Flow examples:
+
+- **DoS/DDoS**: `Source IP -> Target Endpoint -> Alert -> Incident -> SOAR Action`
+- **Brute force/auth**: `Source IP -> Host/User -> Alert -> Incident -> MITRE Technique`
+
+The backend endpoint is:
+
+```text
+GET /api/v1/incidents/{incident_id}/attack-graph
+```
 
 ### Screenshot Checklist
 
 - Incident investigation page with the **Attack Graph** section visible
 - DoS/DDoS example showing `source_ip`, `endpoint`, `alert`, `incident`, and `soar_action`
-- Brute force example showing `source_ip`, `host`, `user`, `alert`, and `incident`
-- MITRE technique node attached in the graph when mappings are present
+- Brute force/auth example showing `source_ip`, `host` or `user`, `alert`, `incident`, and `mitre_technique`
+- Incident with a linked MITRE technique node rendered in gray
+- Incident page loading, error, and no-data states verified
 
 ### Collector Lifecycle (Windows + Linux)
 

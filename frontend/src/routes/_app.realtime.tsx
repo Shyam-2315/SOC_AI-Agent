@@ -85,7 +85,7 @@ function RealtimePage() {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6" data-testid="realtime-page">
       <PageHeader
         eyebrow="Operations"
         title="Realtime Feed"

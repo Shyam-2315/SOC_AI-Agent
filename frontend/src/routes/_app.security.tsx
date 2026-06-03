@@ -1,5 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useState } from "react";
 import { PageHeader } from "@/components/soc/PageHeader";
 import { Btn } from "@/components/soc/Btn";
 import { SeverityBadge } from "@/components/soc/SeverityBadge";
@@ -19,6 +20,11 @@ export const Route = createFileRoute("/_app/security")({
 
 function SecurityPage() {
   const queryClient = useQueryClient();
+  const [draft, setDraft] = useState({
+    ip: "",
+    reason: "Manual analyst block from Traffic Security page",
+    duration_minutes: "15",
+  });
   const summary = useQuery({
     queryKey: ["security", "traffic-summary"],
     queryFn: backend.securityTrafficSummary,
@@ -34,15 +40,16 @@ function SecurityPage() {
   const blockIp = useMutation({
     mutationFn: backend.securityBlockIp,
     onSuccess: async () => {
+      setDraft((value) => ({ ...value, ip: "" }));
       await queryClient.invalidateQueries({ queryKey: ["security"] });
-      await queryClient.invalidateQueries({ queryKey: ["soar-actions"] });
+      await queryClient.invalidateQueries({ queryKey: ["soar"] });
     },
   });
   const unblockIp = useMutation({
     mutationFn: backend.securityUnblockIp,
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ["security"] });
-      await queryClient.invalidateQueries({ queryKey: ["soar-actions"] });
+      await queryClient.invalidateQueries({ queryKey: ["soar"] });
     },
   });
 
@@ -60,7 +67,7 @@ function SecurityPage() {
 
   const blockError = blockIp.error ?? unblockIp.error;
   return (
-    <div className="space-y-6">
+    <div className="space-y-6" data-testid="security-page">
       <PageHeader
         eyebrow="Protection"
         title="DoS / DDoS Security"
@@ -84,15 +91,14 @@ function SecurityPage() {
             <Btn
               variant="hero"
               size="sm"
-              onClick={() => {
-                const ip = window.prompt("IP address to block");
-                if (!ip?.trim()) return;
+              onClick={() =>
                 blockIp.mutate({
-                  ip: ip.trim(),
-                  reason: "Manual analyst block from Traffic Security page",
-                  duration_minutes: 15,
-                });
-              }}
+                  ip: draft.ip.trim(),
+                  reason: draft.reason.trim() || "Manual analyst block from Traffic Security page",
+                  duration_minutes: Number(draft.duration_minutes) || 15,
+                })
+              }
+              disabled={!draft.ip.trim() || blockIp.isPending}
             >
               <Ban className="h-4 w-4" />
               Block IP
@@ -106,6 +112,45 @@ function SecurityPage() {
           {blockError instanceof Error ? blockError.message : "Blocklist operation failed."}
         </div>
       ) : null}
+
+      <div className="rounded-xl border border-border bg-card p-4 shadow-card">
+        <div className="mb-3 text-sm font-semibold">Manual IP block</div>
+        <div className="grid gap-3 md:grid-cols-3">
+          <label className="block">
+            <span className="mb-1 block text-xs font-medium text-muted-foreground">IP</span>
+            <input
+              value={draft.ip}
+              onChange={(event) => setDraft((value) => ({ ...value, ip: event.target.value }))}
+              className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+              aria-label="IP address to block"
+              placeholder="203.0.113.25"
+            />
+          </label>
+          <label className="block">
+            <span className="mb-1 block text-xs font-medium text-muted-foreground">
+              Duration minutes
+            </span>
+            <input
+              value={draft.duration_minutes}
+              onChange={(event) =>
+                setDraft((value) => ({ ...value, duration_minutes: event.target.value }))
+              }
+              className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+              aria-label="Block duration minutes"
+              inputMode="numeric"
+            />
+          </label>
+          <label className="block">
+            <span className="mb-1 block text-xs font-medium text-muted-foreground">Reason</span>
+            <input
+              value={draft.reason}
+              onChange={(event) => setDraft((value) => ({ ...value, reason: event.target.value }))}
+              className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+              aria-label="Block reason"
+            />
+          </label>
+        </div>
+      </div>
 
       <div className="grid gap-4 md:grid-cols-4">
         <MetricCard label="Requests / min" value={String(summary.data?.requests_per_minute ?? 0)} />

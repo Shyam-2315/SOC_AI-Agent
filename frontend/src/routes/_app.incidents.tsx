@@ -24,6 +24,13 @@ function IncidentsPage() {
   const navigate = useNavigate();
   const matchRoute = useMatchRoute();
   const [filter, setFilter] = useState<Status | "all">("all");
+  const [showCreateForm, setShowCreateForm] = useState(false);
+  const [draft, setDraft] = useState({
+    title: "",
+    description: "Created from the SOC console.",
+    severity: "medium",
+    assigned_to_email: "",
+  });
   const [incidentActionError, setIncidentActionError] = useState<string | null>(null);
   const incidents = useQuery({
     queryKey: ["incidents"],
@@ -40,13 +47,21 @@ function IncidentsPage() {
     },
   });
   const createIncident = useMutation({
-    mutationFn: (title: string) =>
+    mutationFn: () =>
       backend.createIncident({
-        title,
-        description: "Created from the SOC console.",
-        severity: "medium",
+        title: draft.title.trim(),
+        description: draft.description.trim(),
+        severity: draft.severity,
+        assigned_to_email: draft.assigned_to_email.trim() || null,
       }),
     onSuccess: () => {
+      setShowCreateForm(false);
+      setDraft({
+        title: "",
+        description: "Created from the SOC console.",
+        severity: "medium",
+        assigned_to_email: "",
+      });
       queryClient.invalidateQueries({ queryKey: ["incidents"] });
       queryClient.invalidateQueries({ queryKey: ["dashboard", "incidents"] });
     },
@@ -105,13 +120,8 @@ function IncidentsPage() {
     });
   }
 
-  function create() {
-    const title = window.prompt("Incident title");
-    if (title?.trim()) createIncident.mutate(title.trim());
-  }
-
   return (
-    <div className="space-y-6">
+    <div className="space-y-6" data-testid="incidents-page">
       <PageHeader
         eyebrow="Operations"
         title="Incidents"
@@ -127,12 +137,96 @@ function IncidentsPage() {
               <RefreshCw className={`h-4 w-4 ${incidents.isFetching ? "animate-spin" : ""}`} />
               Refresh
             </Btn>
-            <Btn variant="hero" size="sm" onClick={create}>
+            <Btn
+              variant="hero"
+              size="sm"
+              onClick={() => setShowCreateForm((value) => !value)}
+              data-testid="toggle-incident-form"
+            >
               + New incident
             </Btn>
           </>
         }
       />
+      {showCreateForm ? (
+        <div className="rounded-xl border border-border bg-card p-4 shadow-card">
+          <div className="mb-3 text-sm font-semibold">Create incident</div>
+          <div className="grid gap-3 md:grid-cols-2">
+            <label className="block md:col-span-2">
+              <span className="mb-1 block text-xs font-medium text-muted-foreground">Title</span>
+              <input
+                value={draft.title}
+                onChange={(event) =>
+                  setDraft((value) => ({ ...value, title: event.target.value }))
+                }
+                className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+                aria-label="Incident title"
+                placeholder="Credential access investigation"
+              />
+            </label>
+            <label className="block">
+              <span className="mb-1 block text-xs font-medium text-muted-foreground">
+                Severity
+              </span>
+              <select
+                value={draft.severity}
+                onChange={(event) =>
+                  setDraft((value) => ({ ...value, severity: event.target.value }))
+                }
+                className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+                aria-label="Incident severity"
+              >
+                {["critical", "high", "medium", "low"].map((severity) => (
+                  <option key={severity} value={severity}>
+                    {severity}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="block">
+              <span className="mb-1 block text-xs font-medium text-muted-foreground">
+                Assigned analyst email
+              </span>
+              <input
+                value={draft.assigned_to_email}
+                onChange={(event) =>
+                  setDraft((value) => ({ ...value, assigned_to_email: event.target.value }))
+                }
+                className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+                aria-label="Assigned analyst email"
+                placeholder="analyst@example.com"
+              />
+            </label>
+            <label className="block md:col-span-2">
+              <span className="mb-1 block text-xs font-medium text-muted-foreground">
+                Description
+              </span>
+              <textarea
+                value={draft.description}
+                onChange={(event) =>
+                  setDraft((value) => ({ ...value, description: event.target.value }))
+                }
+                rows={3}
+                className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+                aria-label="Incident description"
+              />
+            </label>
+          </div>
+          <div className="mt-3 flex justify-end gap-2">
+            <Btn variant="ghost" size="sm" onClick={() => setShowCreateForm(false)}>
+              Cancel
+            </Btn>
+            <Btn
+              variant="hero"
+              size="sm"
+              onClick={() => createIncident.mutate()}
+              disabled={!draft.title.trim() || !draft.description.trim() || createIncident.isPending}
+            >
+              Create incident
+            </Btn>
+          </div>
+        </div>
+      ) : null}
       <div className="flex flex-wrap gap-2">
         {(["all", ...STATUSES] as const).map((s) => (
           <button

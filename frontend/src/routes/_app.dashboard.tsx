@@ -132,7 +132,7 @@ function Dashboard() {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6" data-testid="dashboard-page">
       <PageHeader
         eyebrow="Operations"
         title="SOC Overview"

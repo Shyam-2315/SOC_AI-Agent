@@ -44,9 +44,27 @@ function HuntingPage() {
   });
 
   const error = [timeline, campaigns, stats].find((query) => query.error)?.error;
+  const timelineItems = timeline.data?.items ?? [];
+  const loweredQuery = q.toLowerCase();
+  const filteredTimeline = timelineItems.filter((result) =>
+    [
+      result.event_type,
+      result.message,
+      result.source,
+      result.ip_address,
+      result.attack_stage,
+      result.mitre?.tactic_id,
+      result.mitre?.technique_id,
+      result.mitre?.technique_name,
+    ]
+      .filter(Boolean)
+      .join(" ")
+      .toLowerCase()
+      .includes(loweredQuery),
+  );
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6" data-testid="hunting-page">
       <PageHeader
         eyebrow="Investigation"
         title="Threat Hunting"
@@ -54,6 +72,18 @@ function HuntingPage() {
       />
 
       <div className="rounded-xl border border-border bg-card p-4 shadow-card">
+        <div className="mb-3 rounded-lg border border-primary/20 bg-primary/5 px-3 py-2 text-xs text-muted-foreground">
+          Hunt expressions currently filter the organization-wide timeline in the browser. The
+          current backend contract does not yet accept a query expression for
+          <code className="mx-1 rounded bg-background px-1 py-0.5 font-mono">
+            /threat-hunting/timeline
+          </code>
+          or
+          <code className="mx-1 rounded bg-background px-1 py-0.5 font-mono">
+            /threat-hunting/campaigns
+          </code>
+          .
+        </div>
         <div className="relative">
           <Search className="pointer-events-none absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
           <textarea
@@ -102,10 +132,10 @@ function HuntingPage() {
         <div className="grid gap-4 lg:grid-cols-[1fr_280px]">
           <div className="overflow-hidden rounded-xl border border-border bg-card shadow-card">
             <div className="border-b border-border px-5 py-3 text-sm font-semibold">
-              Timeline results · {timeline.data?.items.length ?? 0}
+              Timeline results · {filteredTimeline.length}
             </div>
             <ul className="divide-y divide-border">
-              {(timeline.data?.items ?? []).length === 0 ? (
+              {filteredTimeline.length === 0 ? (
                 <li className="p-5">
                   <EmptyState
                     title="No hunt results"
@@ -113,7 +143,7 @@ function HuntingPage() {
                   />
                 </li>
               ) : (
-                (timeline.data?.items ?? []).map((result: ThreatTimelineRecord, index) => (
+                filteredTimeline.map((result: ThreatTimelineRecord, index) => (
                   <li
                     key={`${result.timestamp}-${index}`}
                     className="flex items-center gap-3 px-5 py-3 hover:bg-accent/40"

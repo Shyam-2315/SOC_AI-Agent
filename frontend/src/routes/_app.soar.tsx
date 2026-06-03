@@ -21,17 +21,17 @@ function actionName(action: SoarActionRecord): string {
 
 function SoarPage() {
   const actions = useQuery({
-    queryKey: ["soar-actions"],
+    queryKey: ["soar", "actions"],
     queryFn: () => backend.soarActions({ limit: 100 }),
     enabled: canQueryBackend(),
   });
   const blockedIps = useQuery({
-    queryKey: ["blocked-ips"],
+    queryKey: ["soar", "blocked-ips"],
     queryFn: backend.blockedIps,
     enabled: canQueryBackend(),
   });
   const playbooks = useQuery({
-    queryKey: ["playbooks"],
+    queryKey: ["soar", "playbooks"],
     queryFn: async () => Promise.all(PLAYBOOK_EVENTS.map((event) => backend.playbook(event))),
     enabled: canQueryBackend(),
   });
@@ -46,7 +46,7 @@ function SoarPage() {
     );
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6" data-testid="soar-page">
       <PageHeader
         eyebrow="Response"
         title="SOAR Actions"

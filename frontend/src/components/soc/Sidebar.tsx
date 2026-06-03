@@ -1,60 +1,12 @@
 import { Link, useRouterState } from "@tanstack/react-router";
-import {
-  LayoutDashboard,
-  Bell,
-  AlertOctagon,
-  Zap,
-  Crosshair,
-  FileCode2,
-  Package,
-  Radio,
-  Building2,
-  Users,
-  Bot,
-  Activity,
-  Database,
-  ShieldCheck,
-  Shield,
-} from "lucide-react";
+import { ShieldCheck } from "lucide-react";
 import { cn } from "@/lib/utils";
-
-const groups: { label: string; items: { to: string; label: string; icon: React.ElementType }[] }[] =
-  [
-    {
-      label: "Operations",
-      items: [
-        { to: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
-        { to: "/alerts", label: "Alerts", icon: Bell },
-        { to: "/incidents", label: "Incidents", icon: AlertOctagon },
-        { to: "/soar", label: "SOAR Actions", icon: Zap },
-        { to: "/hunting", label: "Threat Hunting", icon: Crosshair },
-        { to: "/realtime", label: "Realtime Feed", icon: Activity },
-        { to: "/security", label: "Traffic Security", icon: Shield },
-      ],
-    },
-    {
-      label: "Detection",
-      items: [
-        { to: "/rules", label: "Detection Rules", icon: FileCode2 },
-        { to: "/packs", label: "Rule Packs", icon: Package },
-        { to: "/collectors", label: "Collectors", icon: Radio },
-        { to: "/ingest", label: "Log Ingestion", icon: Database },
-      ],
-    },
-    {
-      label: "Workspace",
-      items: [
-        { to: "/copilot", label: "Copilot", icon: Bot },
-        { to: "/orgs", label: "Organizations", icon: Building2 },
-        { to: "/users", label: "Users", icon: Users },
-      ],
-    },
-  ];
+import { navGroups } from "./nav";
 
 export function Sidebar() {
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   return (
-    <aside className="hidden md:flex w-64 shrink-0 flex-col border-r border-sidebar-border bg-sidebar">
+    <aside className="hidden w-64 shrink-0 flex-col border-r border-sidebar-border bg-sidebar md:flex">
       <Link
         to="/dashboard"
         className="flex items-center gap-2 border-b border-sidebar-border px-5 py-4"
@@ -72,7 +24,7 @@ export function Sidebar() {
         </div>
       </Link>
       <nav className="scrollbar-thin flex-1 overflow-y-auto px-3 py-4">
-        {groups.map((g) => (
+        {navGroups.map((g) => (
           <div key={g.label} className="mb-5">
             <div className="px-2 pb-2 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
               {g.label}

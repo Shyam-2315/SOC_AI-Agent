@@ -100,13 +100,18 @@ function RulesPage() {
     );
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6" data-testid="rules-page">
       <PageHeader
         eyebrow="Detection"
         title="Detection Rules"
         description="Sigma-style rules powering streaming detection."
         actions={
-          <Btn variant="hero" size="sm" onClick={() => setEditing(newRule())}>
+          <Btn
+            variant="hero"
+            size="sm"
+            onClick={() => setEditing(newRule())}
+            data-testid="new-rule-button"
+          >
             <Plus className="h-4 w-4" /> New rule
           </Btn>
         }
@@ -201,7 +206,10 @@ function RuleEditor({
   const conds = draft.conditions ?? [];
   return (
     <div className="fixed inset-0 z-50 grid place-items-center bg-background/70 p-4 backdrop-blur">
-      <div className="w-full max-w-xl rounded-xl border border-border bg-card shadow-card">
+      <div
+        className="w-full max-w-xl rounded-xl border border-border bg-card shadow-card"
+        data-testid="rule-editor"
+      >
         <div className="flex items-center justify-between border-b border-border px-5 py-3">
           <div className="text-sm font-semibold">Edit rule</div>
           <button onClick={onClose} className="text-muted-foreground hover:text-foreground">
@@ -379,7 +387,13 @@ function RuleEditor({
           <Btn variant="ghost" size="sm" onClick={onClose}>
             Cancel
           </Btn>
-          <Btn variant="hero" size="sm" onClick={() => onSave(draft)} disabled={busy}>
+          <Btn
+            variant="hero"
+            size="sm"
+            onClick={() => onSave(draft)}
+            disabled={busy}
+            data-testid="save-rule-button"
+          >
             Save rule
           </Btn>
         </div>

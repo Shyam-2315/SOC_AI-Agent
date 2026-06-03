@@ -6,7 +6,7 @@ import { Btn } from "@/components/soc/Btn";
 import { EmptyState, ErrorState, LoadingState } from "@/components/soc/States";
 import { backend, entityId, type DetectionPackRecord } from "@/lib/api";
 import { canQueryBackend, downloadJson, textOf } from "@/lib/presentation";
-import { Download, Upload, Package } from "lucide-react";
+import { Download, Package, Plus, Trash2, Upload } from "lucide-react";
 
 export const Route = createFileRoute("/_app/packs")({
   head: () => ({ meta: [{ title: "Rule Packs — SentinelAI" }] }),
@@ -16,6 +16,13 @@ export const Route = createFileRoute("/_app/packs")({
 function PacksPage() {
   const queryClient = useQueryClient();
   const [importText, setImportText] = useState("");
+  const [draft, setDraft] = useState({
+    name: "",
+    description: "",
+    category: "authentication",
+    version: "1.0.0",
+    enabled: true,
+  });
   const packs = useQuery({
     queryKey: ["rule-packs"],
     queryFn: () => backend.packs({ limit: 100 }),
@@ -31,6 +38,19 @@ function PacksPage() {
       backend.updatePack(entityId(pack), { enabled: !pack.enabled }),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["rule-packs"] }),
   });
+  const createPack = useMutation({
+    mutationFn: () => backend.createPack(draft),
+    onSuccess: () => {
+      setDraft({
+        name: "",
+        description: "",
+        category: "authentication",
+        version: "1.0.0",
+        enabled: true,
+      });
+      queryClient.invalidateQueries({ queryKey: ["rule-packs"] });
+    },
+  });
   const importPack = useMutation({
     mutationFn: (rawBody: string) =>
       backend.importPack(
@@ -39,6 +59,13 @@ function PacksPage() {
       ),
     onSuccess: () => {
       setImportText("");
+      queryClient.invalidateQueries({ queryKey: ["rule-packs"] });
+      queryClient.invalidateQueries({ queryKey: ["rules"] });
+    },
+  });
+  const deletePack = useMutation({
+    mutationFn: backend.deletePack,
+    onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["rule-packs"] });
       queryClient.invalidateQueries({ queryKey: ["rules"] });
     },
@@ -59,7 +86,7 @@ function PacksPage() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6" data-testid="packs-page">
       <PageHeader
         eyebrow="Detection"
         title="Rule Packs"
@@ -68,6 +95,75 @@ function PacksPage() {
 
       <div className="grid gap-4 lg:grid-cols-3">
         <div className="lg:col-span-2 space-y-3">
+          <div className="rounded-xl border border-border bg-card p-4 shadow-card">
+            <div className="mb-3 text-sm font-semibold">Create rule pack</div>
+            <div className="grid gap-3 md:grid-cols-2">
+              <label className="block">
+                <span className="mb-1 block text-xs font-medium text-muted-foreground">Name</span>
+                <input
+                  value={draft.name}
+                  onChange={(event) => setDraft((value) => ({ ...value, name: event.target.value }))}
+                  className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+                  aria-label="Rule pack name"
+                  placeholder="Endpoint Starter"
+                />
+              </label>
+              <label className="block">
+                <span className="mb-1 block text-xs font-medium text-muted-foreground">
+                  Category
+                </span>
+                <input
+                  value={draft.category}
+                  onChange={(event) =>
+                    setDraft((value) => ({ ...value, category: event.target.value }))
+                  }
+                  className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+                  aria-label="Rule pack category"
+                  placeholder="authentication"
+                />
+              </label>
+              <label className="block md:col-span-2">
+                <span className="mb-1 block text-xs font-medium text-muted-foreground">
+                  Description
+                </span>
+                <textarea
+                  value={draft.description}
+                  onChange={(event) =>
+                    setDraft((value) => ({ ...value, description: event.target.value }))
+                  }
+                  rows={3}
+                  className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+                  aria-label="Rule pack description"
+                  placeholder="SOC starter rules for a specific use case."
+                />
+              </label>
+              <label className="block">
+                <span className="mb-1 block text-xs font-medium text-muted-foreground">
+                  Version
+                </span>
+                <input
+                  value={draft.version}
+                  onChange={(event) =>
+                    setDraft((value) => ({ ...value, version: event.target.value }))
+                  }
+                  className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+                  aria-label="Rule pack version"
+                  placeholder="1.0.0"
+                />
+              </label>
+            </div>
+            <div className="mt-3 flex justify-end">
+              <Btn
+                variant="hero"
+                size="sm"
+                onClick={() => createPack.mutate()}
+                disabled={!draft.name.trim() || !draft.description.trim() || createPack.isPending}
+                data-testid="create-pack-button"
+              >
+                <Plus className="h-4 w-4" /> Create pack
+              </Btn>
+            </div>
+          </div>
           {(packs.data?.items ?? []).length === 0 ? (
             <EmptyState
               title="No rule packs"
@@ -108,13 +204,22 @@ function PacksPage() {
                 >
                   <Download className="h-4 w-4" /> Export
                 </Btn>
+                <Btn
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => deletePack.mutate(entityId(pack))}
+                  className="text-destructive hover:bg-destructive/10"
+                >
+                  <Trash2 className="h-4 w-4" />
+                </Btn>
               </div>
             ))
           )}
-          {(updatePack.error || importPack.error) && (
+          {(createPack.error || updatePack.error || importPack.error || deletePack.error) && (
             <div className="rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-xs text-destructive">
-              {(updatePack.error ?? importPack.error) instanceof Error
-                ? (updatePack.error ?? importPack.error)?.message
+              {(createPack.error ?? updatePack.error ?? importPack.error ?? deletePack.error) instanceof Error
+                ? (createPack.error ?? updatePack.error ?? importPack.error ?? deletePack.error)
+                    ?.message
                 : "Rule pack operation failed."}
             </div>
           )}

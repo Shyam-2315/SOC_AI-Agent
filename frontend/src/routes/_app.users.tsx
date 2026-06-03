@@ -1,5 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useState } from "react";
 import { PageHeader } from "@/components/soc/PageHeader";
 import { DataTable, type Column } from "@/components/soc/DataTable";
 import { Btn } from "@/components/soc/Btn";
@@ -20,6 +21,13 @@ type UserRow = UserRecord & {
 
 function UsersPage() {
   const queryClient = useQueryClient();
+  const [showForm, setShowForm] = useState(false);
+  const [draft, setDraft] = useState({
+    username: "",
+    email: "",
+    password: "",
+    role: "analyst" as UserRecord["role"],
+  });
   const users = useQuery({
     queryKey: ["users"],
     queryFn: () => backend.users({ limit: 100 }),
@@ -37,7 +45,16 @@ function UsersPage() {
       password: string;
       role: UserRecord["role"];
     }) => backend.createUser(payload),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["users"] }),
+    onSuccess: () => {
+      setShowForm(false);
+      setDraft({
+        username: "",
+        email: "",
+        password: "",
+        role: "analyst",
+      });
+      queryClient.invalidateQueries({ queryKey: ["users"] });
+    },
   });
 
   if (users.isLoading || users.isPending) return <LoadingState label="Loading users…" />;
@@ -99,27 +116,99 @@ function UsersPage() {
     },
   ];
 
-  function invite() {
-    const email = window.prompt("User email");
-    if (!email?.trim()) return;
-    const username = window.prompt("Display name", email.split("@")[0]) || email;
-    const password = window.prompt("Temporary password (12+ characters)");
-    if (!password) return;
-    createUser.mutate({ username, email, password, role: "analyst" });
-  }
-
   return (
-    <div className="space-y-6">
+    <div className="space-y-6" data-testid="users-page">
       <PageHeader
         eyebrow="Workspace"
         title="Users"
         description="Members and roles in your organization."
         actions={
-          <Btn variant="hero" size="sm" onClick={invite}>
+          <Btn variant="hero" size="sm" onClick={() => setShowForm((value) => !value)}>
             + Invite user
           </Btn>
         }
       />
+      {showForm ? (
+        <div className="rounded-xl border border-border bg-card p-4 shadow-card">
+          <div className="mb-3 text-sm font-semibold">Invite organization user</div>
+          <div className="grid gap-3 md:grid-cols-2">
+            <label className="block">
+              <span className="mb-1 block text-xs font-medium text-muted-foreground">
+                Display name
+              </span>
+              <input
+                value={draft.username}
+                onChange={(event) =>
+                  setDraft((value) => ({ ...value, username: event.target.value }))
+                }
+                className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+                aria-label="User display name"
+              />
+            </label>
+            <label className="block">
+              <span className="mb-1 block text-xs font-medium text-muted-foreground">Email</span>
+              <input
+                value={draft.email}
+                onChange={(event) => setDraft((value) => ({ ...value, email: event.target.value }))}
+                className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+                aria-label="User email"
+              />
+            </label>
+            <label className="block">
+              <span className="mb-1 block text-xs font-medium text-muted-foreground">
+                Temporary password
+              </span>
+              <input
+                type="password"
+                value={draft.password}
+                onChange={(event) =>
+                  setDraft((value) => ({ ...value, password: event.target.value }))
+                }
+                className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+                aria-label="Temporary password"
+              />
+            </label>
+            <label className="block">
+              <span className="mb-1 block text-xs font-medium text-muted-foreground">Role</span>
+              <select
+                value={draft.role}
+                onChange={(event) =>
+                  setDraft((value) => ({
+                    ...value,
+                    role: event.target.value as UserRecord["role"],
+                  }))
+                }
+                className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+                aria-label="User role"
+              >
+                {["admin", "analyst", "viewer"].map((role) => (
+                  <option key={role} value={role}>
+                    {role}
+                  </option>
+                ))}
+              </select>
+            </label>
+          </div>
+          <div className="mt-3 flex justify-end gap-2">
+            <Btn variant="ghost" size="sm" onClick={() => setShowForm(false)}>
+              Cancel
+            </Btn>
+            <Btn
+              variant="hero"
+              size="sm"
+              onClick={() => createUser.mutate(draft)}
+              disabled={
+                !draft.username.trim() ||
+                !draft.email.trim() ||
+                draft.password.length < 12 ||
+                createUser.isPending
+              }
+            >
+              Invite user
+            </Btn>
+          </div>
+        </div>
+      ) : null}
       <DataTable
         rows={rows}
         columns={cols}

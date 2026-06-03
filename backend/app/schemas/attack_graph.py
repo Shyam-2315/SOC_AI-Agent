@@ -1,4 +1,4 @@
-from typing import Literal
+from typing import Any, Literal
 
 from pydantic import Field, field_validator
 
@@ -10,6 +10,7 @@ class AttackGraphNode(APIModel):
     type: str = Field(min_length=1, max_length=64)
     label: str = Field(min_length=1, max_length=200)
     severity: str | None = Field(default=None, max_length=20)
+    metadata: dict[str, Any] = Field(default_factory=dict)
 
     @field_validator("severity")
     @classmethod
@@ -34,5 +35,6 @@ class AttackGraphEdge(APIModel):
 
 
 class AttackGraphResponse(APIModel):
+    incident_id: str
     nodes: list[AttackGraphNode]
     edges: list[AttackGraphEdge]

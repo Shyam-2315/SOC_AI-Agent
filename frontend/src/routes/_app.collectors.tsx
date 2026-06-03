@@ -93,7 +93,7 @@ function CollectorsPage() {
   const collectorItems = collectors.data?.items ?? [];
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6" data-testid="collectors-page">
       <PageHeader
         eyebrow="Detection"
         title="Collectors"
@@ -105,19 +105,26 @@ function CollectorsPage() {
           <input
             value={name}
             onChange={(e) => setName(e.target.value)}
+            aria-label="Collector name"
             placeholder="Collector name (e.g. edge-fw-02)"
             className="flex-1 rounded-md border border-border bg-background px-3 py-2 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
           />
           <select
             value={type}
             onChange={(e) => setType(e.target.value as CollectorRecord["type"])}
+            aria-label="Collector type"
             className="rounded-md border border-border bg-background px-3 py-2 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
           >
             {COLLECTOR_TYPES.map((item) => (
               <option key={item}>{item}</option>
             ))}
           </select>
-          <Btn variant="hero" onClick={create} disabled={!name.trim() || createCollector.isPending}>
+          <Btn
+            variant="hero"
+            onClick={create}
+            disabled={!name.trim() || createCollector.isPending}
+            data-testid="create-collector-button"
+          >
             <Plus className="h-4 w-4" /> Create collector
           </Btn>
         </div>

@@ -124,6 +124,7 @@ export type IncidentAttackGraphNode = {
     | "mitre_technique";
   label: string;
   severity?: string | null;
+  metadata: Record<string, unknown>;
 };
 
 export type IncidentAttackGraphEdge = {
@@ -133,6 +134,7 @@ export type IncidentAttackGraphEdge = {
 };
 
 export type IncidentAttackGraphResponse = {
+  incident_id: string;
   nodes: IncidentAttackGraphNode[];
   edges: IncidentAttackGraphEdge[];
 };
@@ -308,6 +310,69 @@ export type MitreMapping = {
   technique_name?: string | null;
   subtechnique_id?: string | null;
   subtechnique_name?: string | null;
+};
+
+export type AiRecommendedAction =
+  | "block_ip"
+  | "isolate_host"
+  | "escalate_to_admin"
+  | "monitor_only"
+  | "close_false_positive"
+  | "open_investigation"
+  | "run_threat_hunt";
+
+export type AiAlertTriage = {
+  alert_id: string;
+  risk_score: number;
+  priority: "low" | "medium" | "high" | "critical";
+  reasoning: string[];
+  recommended_action: AiRecommendedAction;
+  mapped_mitre_techniques: MitreMapping[];
+};
+
+export type AiFalsePositiveScore = {
+  alert_id: string;
+  false_positive_score: number;
+  confidence: "low" | "medium" | "high";
+  reasons: string[];
+  suggested_status: "investigate" | "monitor" | "likely_false_positive";
+};
+
+export type AiIncidentSummary = {
+  incident_id: string;
+  title: string;
+  executive_summary: string;
+  root_cause_guess: string;
+  affected_assets: string[];
+  attack_timeline: {
+    timestamp?: string | null;
+    event_type?: string | null;
+    description: string;
+    severity?: string | null;
+    source_ip?: string | null;
+    host?: string | null;
+  }[];
+  mitre_techniques: MitreMapping[];
+  recommended_actions: AiRecommendedAction[];
+  analyst_next_steps: string[];
+};
+
+export type AiRecommendedActionsResponse = {
+  incident_id: string;
+  recommended_actions: AiRecommendedAction[];
+  reasons: string[];
+};
+
+export type AiCopilotQueryResponse = {
+  intent: string;
+  filters: Record<string, unknown>;
+  backend_endpoint_suggestion: string;
+  explanation: string;
+  result_preview?: {
+    count?: number;
+    sample?: unknown[];
+    [key: string]: unknown;
+  } | null;
 };
 
 export type CorrelationGroupRecord = BackendDocument & {
@@ -675,6 +740,9 @@ export const backend = {
     description: string;
     severity: string;
     assigned_to?: string | null;
+    assigned_to_user_id?: string | null;
+    assigned_to_email?: string | null;
+    investigation_notes?: string | null;
   }) =>
     api<{ message: string; incident: IncidentRecord }>("/incidents/", {
       method: "POST",
@@ -788,6 +856,19 @@ export const backend = {
     }),
   askCopilot: (query: string) =>
     api<Record<string, unknown>>("/copilot/query", {
+      method: "POST",
+      body: JSON.stringify({ query }),
+    }),
+  aiAlertTriage: (alertId: string) =>
+    api<AiAlertTriage>(`/api/ai/alerts/${alertId}/triage`),
+  aiAlertFalsePositiveScore: (alertId: string) =>
+    api<AiFalsePositiveScore>(`/api/ai/alerts/${alertId}/false-positive-score`),
+  aiIncidentSummary: (incidentId: string) =>
+    api<AiIncidentSummary>(`/api/ai/incidents/${incidentId}/summary`),
+  aiIncidentRecommendedActions: (incidentId: string) =>
+    api<AiRecommendedActionsResponse>(`/api/ai/incidents/${incidentId}/recommended-actions`),
+  aiCopilotQuery: (query: string) =>
+    api<AiCopilotQueryResponse>("/api/ai/copilot/query", {
       method: "POST",
       body: JSON.stringify({ query }),
     }),

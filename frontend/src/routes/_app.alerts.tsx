@@ -1,6 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { PageHeader } from "@/components/soc/PageHeader";
+import { AlertAiPanel } from "@/components/soc/AiCopilotPanels";
 import { DataTable, type Column } from "@/components/soc/DataTable";
 import { SeverityBadge } from "@/components/soc/SeverityBadge";
 import { Btn } from "@/components/soc/Btn";
@@ -126,7 +127,7 @@ function AlertsPage() {
   ];
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6" data-testid="alerts-page">
       <PageHeader
         eyebrow="Operations"
         title="Alerts"
@@ -160,6 +161,7 @@ function AlertsPage() {
           </>
         }
       />
+      {rows[0] ? <AlertAiPanel alertId={rows[0].id} /> : null}
       <DataTable
         rows={rows}
         columns={cols}

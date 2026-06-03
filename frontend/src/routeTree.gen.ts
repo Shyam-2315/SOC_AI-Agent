@@ -14,8 +14,8 @@ import { Route as AppRouteImport } from './routes/_app'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AppUsersRouteImport } from './routes/_app.users'
 import { Route as AppSoarRouteImport } from './routes/_app.soar'
-import { Route as AppRulesRouteImport } from './routes/_app.rules'
 import { Route as AppSecurityRouteImport } from './routes/_app.security'
+import { Route as AppRulesRouteImport } from './routes/_app.rules'
 import { Route as AppRealtimeRouteImport } from './routes/_app.realtime'
 import { Route as AppPacksRouteImport } from './routes/_app.packs'
 import { Route as AppOrgsRouteImport } from './routes/_app.orgs'
@@ -53,14 +53,14 @@ const AppSoarRoute = AppSoarRouteImport.update({
   path: '/soar',
   getParentRoute: () => AppRoute,
 } as any)
-const AppRulesRoute = AppRulesRouteImport.update({
-  id: '/rules',
-  path: '/rules',
-  getParentRoute: () => AppRoute,
-} as any)
 const AppSecurityRoute = AppSecurityRouteImport.update({
   id: '/security',
   path: '/security',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppRulesRoute = AppRulesRouteImport.update({
+  id: '/rules',
+  path: '/rules',
   getParentRoute: () => AppRoute,
 } as any)
 const AppRealtimeRoute = AppRealtimeRouteImport.update({
@@ -244,6 +244,7 @@ export interface FileRouteTypes {
     | '/_app/packs'
     | '/_app/realtime'
     | '/_app/rules'
+    | '/_app/security'
     | '/_app/soar'
     | '/_app/users'
     | '/_app/incidents/$incidentId'
@@ -291,6 +292,13 @@ declare module '@tanstack/react-router' {
       path: '/soar'
       fullPath: '/soar'
       preLoaderRoute: typeof AppSoarRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/security': {
+      id: '/_app/security'
+      path: '/security'
+      fullPath: '/security'
+      preLoaderRoute: typeof AppSecurityRouteImport
       parentRoute: typeof AppRoute
     }
     '/_app/rules': {
