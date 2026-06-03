@@ -69,6 +69,7 @@ services:
       NODE_ENV: production
       HOST: 0.0.0.0
       PORT: 3000
+      SSR_SERVER_ENTRY: dist/server/index.js
     ports:
       - "3000:3000"
     depends_on:

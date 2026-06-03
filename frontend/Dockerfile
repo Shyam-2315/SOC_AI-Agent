@@ -3,9 +3,9 @@ FROM node:22-alpine AS build
 WORKDIR /app
 
 COPY package.json ./
-COPY bun.lock ./
+COPY package-lock.json ./
 
-RUN npm install --no-audit --no-fund
+RUN npm ci --no-audit --no-fund
 
 COPY . .
 
@@ -23,7 +23,7 @@ ENV VITE_DEMO_ADMIN_EMAIL=$VITE_DEMO_ADMIN_EMAIL
 ENV VITE_DEMO_ADMIN_PASSWORD=$VITE_DEMO_ADMIN_PASSWORD
 ENV VITE_DEMO_COLLECTOR_TOKEN=$VITE_DEMO_COLLECTOR_TOKEN
 
-RUN npm run build
+RUN npm run build && npm run docker:check
 
 FROM node:22-alpine AS runtime
 

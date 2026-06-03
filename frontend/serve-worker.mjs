@@ -7,7 +7,20 @@ import path from "node:path";
 
 const rootDir = path.dirname(fileURLToPath(import.meta.url));
 const clientDir = path.join(rootDir, "dist", "client");
-const workerUrl = pathToFileURL(path.join(rootDir, "dist", "server", "index.js")).href;
+const serverEntry = process.env.SSR_SERVER_ENTRY || "dist/server/index.js";
+const workerPath = path.resolve(rootDir, serverEntry);
+try {
+  const file = await stat(workerPath);
+  if (!file.isFile()) {
+    throw new Error(`${serverEntry} is not a file`);
+  }
+} catch (error) {
+  throw new Error(
+    `SSR server entry is missing at ${serverEntry}. Run npm run build and verify dist/server output.`,
+    { cause: error },
+  );
+}
+const workerUrl = pathToFileURL(workerPath).href;
 const worker = (await import(workerUrl)).default;
 const port = Number(process.env.PORT || 8080);
 const host = process.env.HOST || "0.0.0.0";
