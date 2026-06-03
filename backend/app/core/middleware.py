@@ -3,7 +3,9 @@ from uuid import uuid4
 
 from fastapi import HTTPException, Request, status
 from starlette.middleware.base import BaseHTTPMiddleware
-from starlette.responses import Response
+from starlette.responses import JSONResponse, Response
+from starlette.datastructures import MutableHeaders
+from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
 from app.core.config import Settings
 from app.core.logging import (
@@ -18,6 +20,34 @@ from app.services.dos_ddos_detection_service import process_traffic_event
 
 
 logger = get_logger(__name__)
+
+
+def _middleware_error_response(
+    request: Request,
+    *,
+    status_code: int,
+    code: str,
+    message: str,
+    details: dict | None = None,
+) -> JSONResponse:
+    request_id = getattr(request.state, "request_id", None) or request.headers.get(
+        "X-Request-ID",
+        "-",
+    )
+    payload = {
+        "error": {
+            "code": code,
+            "message": message,
+        },
+        "request_id": request_id,
+    }
+    if details is not None:
+        payload["error"]["details"] = details
+    return JSONResponse(
+        status_code=status_code,
+        content=payload,
+        headers={"X-Request-ID": request_id},
+    )
 
 
 def _client_ip(request: Request) -> str:
@@ -54,13 +84,13 @@ class TrafficProtectionMiddleware(BaseHTTPMiddleware):
 
         try:
             if not is_health and await is_blocked(source_ip):
-                raise HTTPException(
+                response = _middleware_error_response(
+                    request,
                     status_code=status.HTTP_403_FORBIDDEN,
-                    detail={
-                        "code": "traffic_blocked",
-                        "message": "Request blocked due to suspicious traffic behavior",
-                    },
+                    code="traffic_blocked",
+                    message="Request blocked due to suspicious traffic behavior",
                 )
+                return response
 
             response = await call_next(request)
         except HTTPException:
@@ -103,21 +133,28 @@ class RequestSizeLimitMiddleware(BaseHTTPMiddleware):
             except ValueError:
                 length = 0
             if length > self.settings.request_max_body_bytes:
-                raise HTTPException(
+                return _middleware_error_response(
+                    request,
                     status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
-                    detail={
-                        "code": "request_too_large",
-                        "message": "Request body exceeds the configured size limit",
-                        "details": {
-                            "max_body_bytes": self.settings.request_max_body_bytes,
-                        },
+                    code="request_too_large",
+                    message="Request body exceeds the configured size limit",
+                    details={
+                        "max_body_bytes": self.settings.request_max_body_bytes,
                     },
                 )
         return await call_next(request)
 
 
-class RequestContextMiddleware(BaseHTTPMiddleware):
-    async def dispatch(self, request: Request, call_next):
+class RequestContextMiddleware:
+    def __init__(self, app: ASGIApp):
+        self.app = app
+
+    async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
+        if scope["type"] != "http":
+            await self.app(scope, receive, send)
+            return
+
+        request = Request(scope, receive)
         request_id = request.headers.get("X-Request-ID", str(uuid4()))
         request.state.request_id = request_id
         request.state.started_at = perf_counter()
@@ -127,23 +164,31 @@ class RequestContextMiddleware(BaseHTTPMiddleware):
         client_ip_token = client_ip_context.set(request.state.client_ip)
         organization_token = organization_id_context.set(request.state.organization_id or "-")
 
+        status_code = 500
+
+        async def send_with_request_id(message: Message) -> None:
+            nonlocal status_code
+            if message["type"] == "http.response.start":
+                status_code = int(message["status"])
+                headers = MutableHeaders(scope=message)
+                headers["X-Request-ID"] = request_id
+            await send(message)
+
         try:
-            response = await call_next(request)
+            await self.app(scope, receive, send_with_request_id)
+        finally:
             duration_ms = round((perf_counter() - request.state.started_at) * 1000, 2)
-            response.headers["X-Request-ID"] = request_id
             logger.info(
                 "request completed",
                 extra={
                     "method": request.method,
                     "path": request.url.path,
-                    "status_code": response.status_code,
+                    "status_code": status_code,
                     "duration_ms": duration_ms,
                     "client_ip": request.state.client_ip,
                     "organization_id": request.state.organization_id,
                 },
             )
-            return response
-        finally:
             organization_id_context.reset(organization_token)
             client_ip_context.reset(client_ip_token)
             request_id_context.reset(request_id_token)

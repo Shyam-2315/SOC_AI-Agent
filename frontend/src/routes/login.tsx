@@ -11,8 +11,10 @@ import {
   setToken,
 } from "@/lib/api";
 
+type AuthMode = "login" | "register";
+
 export const Route = createFileRoute("/login")({
-  validateSearch: (search: Record<string, unknown>) => ({
+  validateSearch: (search: Record<string, unknown>): { mode: AuthMode } => ({
     mode: search.mode === "register" ? "register" : "login",
   }),
   head: () => ({ meta: [{ title: "Sign in — SentinelAI" }] }),
@@ -20,7 +22,6 @@ export const Route = createFileRoute("/login")({
 });
 
 const DEMO = { email: demoAdminEmail(), password: demoAdminPassword() };
-type AuthMode = "login" | "register";
 
 function Login() {
   const navigate = useNavigate();

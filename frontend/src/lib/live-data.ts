@@ -2,6 +2,7 @@ import type { QueryClient } from "@tanstack/react-query";
 import {
   entityId,
   type AlertRecord,
+  type BackendDocument,
   type IncidentRecord,
   type Paginated,
   type SoarActionRecord,
@@ -109,7 +110,7 @@ export function soarActionFromRealtimeEvent(event: RealtimeEvent): SoarActionRec
   };
 }
 
-function upsertPaginatedItem<T extends { id?: unknown; _id?: unknown }>(
+function upsertPaginatedItem<T extends BackendDocument>(
   current: Paginated<T> | undefined,
   item: T,
 ): Paginated<T> | undefined {
@@ -124,7 +125,7 @@ function upsertPaginatedItem<T extends { id?: unknown; _id?: unknown }>(
   };
 }
 
-function updatePaginatedQueries<T extends { id?: unknown; _id?: unknown }>(
+function updatePaginatedQueries<T extends BackendDocument>(
   queryClient: QueryClient,
   queryKeys: unknown[][],
   item: T,

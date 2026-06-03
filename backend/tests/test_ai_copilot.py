@@ -154,6 +154,32 @@ class AiCopilotTests(unittest.IsolatedAsyncioTestCase):
         self.assertIn("/alerts/", result["backend_endpoint_suggestion"])
         self.assertEqual(result["result_preview"]["count"], 1)
 
+    async def test_severity_alert_query_parsing_examples(self):
+        examples = [
+            ("show high severity alerts", "high"),
+            ("show critical severity alerts", "critical"),
+            ("show medium severity alerts", "medium"),
+            ("show low severity alerts", "low"),
+            ("high severity alerts", "high"),
+            ("critical alerts", "critical"),
+            ("show high alerts", "high"),
+        ]
+
+        for query, severity in examples:
+            with self.subTest(query=query):
+                result = await ai_copilot_service.interpret_soc_query(query, "org-1")
+
+                self.assertEqual(result["intent"], "alert_search")
+                self.assertEqual(result["filters"], {"severity": severity})
+                self.assertEqual(
+                    result["backend_endpoint_suggestion"],
+                    f"/api/alerts?severity={severity}",
+                )
+                self.assertEqual(
+                    result["explanation"],
+                    f"Showing {severity} severity alerts.",
+                )
+
     async def test_tenant_isolation(self):
         with self.assertRaises(HTTPException) as raised:
             await ai_copilot_service.triage_alert(str(self.other_alert_id), "org-1")

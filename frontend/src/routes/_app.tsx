@@ -9,7 +9,7 @@ import { getToken } from "@/lib/api";
 export const Route = createFileRoute("/_app")({
   beforeLoad: () => {
     if (typeof window !== "undefined" && !getToken()) {
-      throw redirect({ to: "/login" });
+      throw redirect({ to: "/login", search: { mode: "login" } });
     }
   },
   component: AppLayout,

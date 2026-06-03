@@ -28,7 +28,7 @@ export function Topbar() {
 
   function logout() {
     setToken(null);
-    navigate({ to: "/login" });
+    navigate({ to: "/login", search: { mode: "login" } });
   }
 
   return (

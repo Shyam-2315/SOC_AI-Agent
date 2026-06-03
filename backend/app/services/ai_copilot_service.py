@@ -190,11 +190,11 @@ async def interpret_soc_query(query: str, organization_id: str) -> dict:
         endpoint = "/alerts/?event_type=failed_login"
         explanation = "The query asks for alerts with failed-login indicators."
         preview = await _preview_alerts(organization_id, filters)
-    elif "high severity" in normalized:
-        intent = "show_high_severity_alerts"
-        filters = {"severity": "high"}
-        endpoint = "/alerts/?severity=high"
-        explanation = "The query asks for high-severity alerts."
+    elif severity := _severity_alert_query(normalized):
+        intent = "alert_search"
+        filters = {"severity": severity}
+        endpoint = f"/api/alerts?severity={severity}"
+        explanation = f"Showing {severity} severity alerts."
         preview = await _preview_alerts(organization_id, filters)
     elif "dos" in normalized or "ddos" in normalized:
         intent = "show_dos_attacks"
@@ -377,6 +377,20 @@ def _is_related(left: dict, right: dict) -> bool:
             left.get("matched_rule_id") and left.get("matched_rule_id") == right.get("matched_rule_id"),
         ]
     )
+
+
+def _severity_alert_query(normalized_query: str) -> str | None:
+    severity_pattern = r"(critical|high|medium|low)"
+    patterns = [
+        rf"\b{severity_pattern}\s+severity\s+alerts?\b",
+        rf"\b{severity_pattern}\s+alerts?\b",
+        rf"\balerts?\s+(?:with\s+)?severity\s+{severity_pattern}\b",
+    ]
+    for pattern in patterns:
+        match = re.search(pattern, normalized_query)
+        if match:
+            return next(group for group in match.groups() if group)
+    return None
 
 
 def _is_failed_login(item: dict) -> bool:

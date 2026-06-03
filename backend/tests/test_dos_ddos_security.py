@@ -4,7 +4,7 @@ import unittest
 
 from bson import ObjectId
 from fastapi import FastAPI
-from fastapi.testclient import TestClient
+import httpx
 
 from app.core.middleware import TrafficProtectionMiddleware
 from app.services import blocklist_service
@@ -271,7 +271,7 @@ class DosDdosSecurityTests(unittest.IsolatedAsyncioTestCase):
         self.assertTrue(await blocklist_service.is_blocked("203.0.113.20"))
         self.assertEqual(self.actions.documents[0]["status"], "simulated")
 
-    def test_blocked_ip_receives_403_and_health_endpoint_still_works(self):
+    async def test_blocked_ip_receives_403_and_health_endpoint_still_works(self):
         original_is_blocked = TrafficProtectionMiddleware.dispatch.__globals__["is_blocked"]
         original_process = TrafficProtectionMiddleware.dispatch.__globals__["process_traffic_event"]
 
@@ -297,9 +297,16 @@ class DosDdosSecurityTests(unittest.IsolatedAsyncioTestCase):
             async def health():
                 return {"status": "ok"}
 
-            client = TestClient(app)
-            blocked = client.get("/protected", headers={"x-forwarded-for": "203.0.113.99"})
-            health = client.get("/health", headers={"x-forwarded-for": "203.0.113.99"})
+            transport = httpx.ASGITransport(app=app)
+            async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
+                blocked = await client.get(
+                    "/protected",
+                    headers={"x-forwarded-for": "203.0.113.99"},
+                )
+                health = await client.get(
+                    "/health",
+                    headers={"x-forwarded-for": "203.0.113.99"},
+                )
         finally:
             TrafficProtectionMiddleware.dispatch.__globals__["is_blocked"] = original_is_blocked
             TrafficProtectionMiddleware.dispatch.__globals__["process_traffic_event"] = (
@@ -307,10 +314,13 @@ class DosDdosSecurityTests(unittest.IsolatedAsyncioTestCase):
             )
 
         self.assertEqual(blocked.status_code, 403)
-        self.assertEqual(blocked.json()["detail"], "Request blocked due to suspicious traffic behavior")
+        self.assertEqual(blocked.json()["error"]["code"], "traffic_blocked")
+        self.assertEqual(
+            blocked.json()["error"]["message"],
+            "Request blocked due to suspicious traffic behavior",
+        )
         self.assertEqual(health.status_code, 200)
 
 
 if __name__ == "__main__":
     unittest.main()
-

@@ -45,7 +45,7 @@ function response(route: Route, body: JsonValue, status = 200) {
 }
 
 function paginated(items: Array<Record<string, unknown>>, url: URL) {
-  const limit = Number(url.searchParams.get("limit") ?? items.length || 100);
+  const limit = Number(url.searchParams.get("limit") ?? (items.length || 100));
   const offset = Number(url.searchParams.get("offset") ?? 0);
   return {
     items: items.slice(offset, offset + limit),

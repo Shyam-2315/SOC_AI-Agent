@@ -39,7 +39,7 @@ describe("AttackGraph", () => {
 
     expect(screen.getByText("Source IPs")).toBeInTheDocument();
     expect(screen.getByText("Alerts")).toBeInTheDocument();
-    expect(screen.getByText("Credential access incident")).toBeInTheDocument();
+    expect(screen.getAllByText("Credential access incident").length).toBeGreaterThan(0);
     expect(screen.getByText("triggered")).toBeInTheDocument();
     expect(screen.getByText("correlated")).toBeInTheDocument();
   });

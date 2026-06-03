@@ -2,14 +2,14 @@ import unittest
 from types import SimpleNamespace
 
 from fastapi import FastAPI, HTTPException
-from fastapi.testclient import TestClient
+import httpx
 
 from app.core.exceptions import register_exception_handlers
 from app.core.middleware import RequestContextMiddleware, RequestSizeLimitMiddleware
 from app.core.rate_limit import _LAST_SEEN, _REQUESTS, check_rate_limit
 
 
-class CoreHardeningTests(unittest.TestCase):
+class CoreHardeningTests(unittest.IsolatedAsyncioTestCase):
     def test_rate_limit_returns_structured_http_exception(self):
         _REQUESTS.clear()
         _LAST_SEEN.clear()
@@ -23,7 +23,7 @@ class CoreHardeningTests(unittest.TestCase):
         self.assertEqual(raised.exception.detail["code"], "rate_limit_exceeded")
         self.assertEqual(raised.exception.headers["Retry-After"], "60")
 
-    def test_exception_handlers_return_structured_payload(self):
+    async def test_exception_handlers_return_structured_payload(self):
         app = FastAPI()
         app.add_middleware(RequestContextMiddleware)
         register_exception_handlers(app)
@@ -39,15 +39,16 @@ class CoreHardeningTests(unittest.TestCase):
                 },
             )
 
-        client = TestClient(app)
-        response = client.get("/boom", headers={"X-Request-ID": "req-123"})
+        transport = httpx.ASGITransport(app=app)
+        async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
+            response = await client.get("/boom", headers={"X-Request-ID": "req-123"})
 
         self.assertEqual(response.status_code, 403)
         self.assertEqual(response.json()["error"]["code"], "traffic_blocked")
         self.assertEqual(response.json()["error"]["details"], {"reason": "dos"})
         self.assertEqual(response.json()["request_id"], "req-123")
 
-    def test_request_size_limit_rejects_large_payloads(self):
+    async def test_request_size_limit_rejects_large_payloads(self):
         app = FastAPI()
         app.add_middleware(RequestContextMiddleware)
         app.add_middleware(
@@ -60,12 +61,13 @@ class CoreHardeningTests(unittest.TestCase):
         async def upload():
             return {"ok": True}
 
-        client = TestClient(app)
-        response = client.post(
-            "/upload",
-            content="x" * 11,
-            headers={"content-type": "text/plain", "X-Request-ID": "req-size"},
-        )
+        transport = httpx.ASGITransport(app=app)
+        async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
+            response = await client.post(
+                "/upload",
+                content="x" * 11,
+                headers={"content-type": "text/plain", "X-Request-ID": "req-size"},
+            )
 
         self.assertEqual(response.status_code, 413)
         payload = response.json()

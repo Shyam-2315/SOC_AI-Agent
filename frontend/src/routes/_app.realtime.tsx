@@ -9,6 +9,7 @@ import { ClientTime } from "@/components/soc/ClientOnly";
 import { useMounted } from "@/hooks/use-mounted";
 import {
   backend,
+  type BackendDocument,
   entityId,
   getWebsocketStatus,
   onWebsocketStatusChange,
@@ -28,7 +29,7 @@ export const Route = createFileRoute("/_app/realtime")({
   component: RealtimePage,
 });
 
-function uniqueById<T extends { id?: unknown; _id?: unknown }>(items: T[]): T[] {
+function uniqueById<T extends BackendDocument>(items: T[]): T[] {
   const seen = new Set<string>();
   return items.filter((item) => {
     const id = entityId(item);

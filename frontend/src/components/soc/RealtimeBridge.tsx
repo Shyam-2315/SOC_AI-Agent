@@ -71,11 +71,11 @@ export function RealtimeBridge() {
       setWebsocketStatus("error");
     };
 
-    socket.onclose = () => {
+    socket.onclose = (event) => {
       if (socketRef.current === socket) {
         socketRef.current = null;
       }
-      if (!closedByEffect && getToken() && ![1008, 1011].includes(socket.code)) {
+      if (!closedByEffect && getToken() && ![1008, 1011].includes(event.code)) {
         setWebsocketStatus("reconnecting");
         const backoffMs = Math.min(30_000, 1_000 * 2 ** Math.min(reconnectAttempt, 4));
         reconnectTimerRef.current = setTimeout(() => {

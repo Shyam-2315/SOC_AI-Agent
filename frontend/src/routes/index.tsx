@@ -42,7 +42,7 @@ function Landing() {
           </a>
         </nav>
         <div className="flex items-center gap-2">
-          <Link to="/login">
+          <Link to="/login" search={{ mode: "login" }}>
             <Btn variant="ghost" size="sm">
               Sign in
             </Btn>
@@ -75,7 +75,7 @@ function Landing() {
                 Create organization <ArrowRight className="h-4 w-4" />
               </Btn>
             </a>
-            <Link to="/login">
+            <Link to="/login" search={{ mode: "login" }}>
               <Btn variant="outline" size="lg">
                 Sign in
               </Btn>
@@ -213,7 +213,7 @@ Suricata     ─┘   └──────┬───────┘    └─
               Create organization <ArrowRight className="h-4 w-4" />
             </Btn>
           </a>
-          <Link to="/login">
+          <Link to="/login" search={{ mode: "login" }}>
             <Btn variant="outline" size="lg">
               Sign in
             </Btn>
