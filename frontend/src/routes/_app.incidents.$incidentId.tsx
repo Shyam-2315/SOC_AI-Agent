@@ -3,6 +3,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { type ReactNode, useState } from "react";
 import { AttackGraph } from "@/components/soc/AttackGraph";
 import { IncidentAiPanel } from "@/components/soc/AiCopilotPanels";
+import { IncidentThreatIntelPanel } from "@/components/soc/ThreatIntel";
 import { PageHeader } from "@/components/soc/PageHeader";
 import { Btn } from "@/components/soc/Btn";
 import { ClientDateTime } from "@/components/soc/ClientOnly";
@@ -320,6 +321,7 @@ function IncidentInvestigationPage() {
 
         <aside className="space-y-4">
           <IncidentAiPanel incidentId={incidentId} />
+          <IncidentThreatIntelPanel incidentId={incidentId} />
 
           <div className="rounded-xl border border-border bg-card p-4 shadow-card">
             <div className="text-sm font-semibold">Analyst notes and status</div>

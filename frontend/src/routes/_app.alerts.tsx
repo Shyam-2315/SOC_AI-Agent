@@ -2,6 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { PageHeader } from "@/components/soc/PageHeader";
 import { AlertAiPanel } from "@/components/soc/AiCopilotPanels";
+import { AlertThreatIntelPanel } from "@/components/soc/ThreatIntel";
 import { DataTable, type Column } from "@/components/soc/DataTable";
 import { SeverityBadge } from "@/components/soc/SeverityBadge";
 import { Btn } from "@/components/soc/Btn";
@@ -161,7 +162,12 @@ function AlertsPage() {
           </>
         }
       />
-      {rows[0] ? <AlertAiPanel alertId={rows[0].id} /> : null}
+      {rows[0] ? (
+        <div className="grid gap-4 xl:grid-cols-2">
+          <AlertAiPanel alertId={rows[0].id} />
+          <AlertThreatIntelPanel alertId={rows[0].id} />
+        </div>
+      ) : null}
       <DataTable
         rows={rows}
         columns={cols}

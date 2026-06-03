@@ -14,6 +14,7 @@ from app.api.routes.rules import router as rules_router
 from app.api.routes.security import router as security_router
 from app.api.routes.soar import router as soar_router
 from app.api.routes.threat_hunting import router as threat_hunting_router
+from app.api.routes.threat_intel import router as threat_intel_router
 
 
 api_router = APIRouter()
@@ -30,4 +31,5 @@ api_router.include_router(security_router)
 api_router.include_router(incidents_router)
 api_router.include_router(soar_router)
 api_router.include_router(threat_hunting_router)
+api_router.include_router(threat_intel_router)
 api_router.include_router(copilot_router)

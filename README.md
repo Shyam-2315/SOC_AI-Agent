@@ -298,6 +298,58 @@ cd frontend && npm test -- --run src/lib/api.test.ts src/routes/_app.copilot.tes
 4. Open Alerts and review the AI alert triage panel for the latest alert.
 5. Open an incident detail page and review the AI incident summary and recommended actions.
 
+## Threat Intelligence Engine Phase 2
+
+Phase 2 adds deterministic IOC reputation, alert enrichment, incident enrichment, and Copilot threat lookup without paid or external intelligence APIs. The built-in demo feed is local, explainable, and safe for repeatable tests.
+
+### Features
+
+- IOC lookup for `ip`, `domain`, `url`, `hash`, and `email`
+- Deterministic internal demo feed with malicious IPs, suspicious domains, phishing URLs, malware hashes, and brute-force source examples
+- IOC normalization with exact matching, URL domain extraction, domain normalization, IP parsing, and hash parsing
+- Alert enrichment from IOC-like fields such as `source_ip`, `destination_ip`, `domain`, `url`, `file_hash`, `hash`, and `email`
+- Incident threat enrichment across correlated alerts
+- Copilot threat parsing for IOC checks and threat feed questions
+
+### Endpoints
+
+- `GET /api/threat-intel/lookup?indicator={indicator}`
+- `POST /api/threat-intel/bulk-lookup`
+- `GET /api/threat-intel/feed`
+- `POST /api/threat-intel/enrich-alert/{alert_id}`
+- `POST /api/threat-intel/enrich-incident/{incident_id}`
+
+All enrichment endpoints require JWT authentication and enforce organization isolation before reading alert or incident data.
+
+### Demo Indicators
+
+- `203.0.113.10` - malicious brute-force source IP
+- `198.51.100.23` - malicious DoS/scanner source IP
+- `evil.example` - malicious command-and-control domain
+- `suspicious-login.example` - suspicious login infrastructure domain
+- `https://phish.example/login` - malicious phishing URL
+- `44d88612fea8a8f36de82e1278abb02f` - malware hash example
+- `8.8.8.8` - clean IP example
+
+### Example Copilot Questions
+
+- `is 203.0.113.10 malicious?`
+- `check ip 198.51.100.23`
+- `lookup domain evil.example`
+- `check hash 44d88612fea8a8f36de82e1278abb02f`
+- `show malicious indicators`
+- `show threat feed`
+
+### Test Commands
+
+```bash
+cd backend && python -m pytest tests/test_threat_intel.py
+cd backend && python -m pytest tests/test_ai_copilot.py
+cd frontend && npm run test
+cd frontend && npx tsc --noEmit
+cd frontend && npm run build
+```
+
 ## 🕸️ Attack Graph Visualization
 
 Incident Investigation includes an **Attack Graph** section that reconstructs deterministic relationships from existing incident data. It helps analysts quickly understand how a source IP, target host or endpoint, alert chain, incident record, MITRE mapping, and SOAR response are connected.

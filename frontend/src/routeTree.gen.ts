@@ -13,6 +13,7 @@ import { Route as LoginRouteImport } from './routes/login'
 import { Route as AppRouteImport } from './routes/_app'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AppUsersRouteImport } from './routes/_app.users'
+import { Route as AppThreatIntelRouteImport } from './routes/_app.threat-intel'
 import { Route as AppSoarRouteImport } from './routes/_app.soar'
 import { Route as AppSecurityRouteImport } from './routes/_app.security'
 import { Route as AppRulesRouteImport } from './routes/_app.rules'
@@ -46,6 +47,11 @@ const IndexRoute = IndexRouteImport.update({
 const AppUsersRoute = AppUsersRouteImport.update({
   id: '/users',
   path: '/users',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppThreatIntelRoute = AppThreatIntelRouteImport.update({
+  id: '/threat-intel',
+  path: '/threat-intel',
   getParentRoute: () => AppRoute,
 } as any)
 const AppSoarRoute = AppSoarRouteImport.update({
@@ -141,6 +147,7 @@ export interface FileRoutesByFullPath {
   '/rules': typeof AppRulesRoute
   '/security': typeof AppSecurityRoute
   '/soar': typeof AppSoarRoute
+  '/threat-intel': typeof AppThreatIntelRoute
   '/users': typeof AppUsersRoute
   '/incidents/$incidentId': typeof AppIncidentsIncidentIdRoute
   '/threat-hunting/timeline/$incidentId': typeof AppThreatHuntingTimelineIncidentIdRoute
@@ -161,6 +168,7 @@ export interface FileRoutesByTo {
   '/rules': typeof AppRulesRoute
   '/security': typeof AppSecurityRoute
   '/soar': typeof AppSoarRoute
+  '/threat-intel': typeof AppThreatIntelRoute
   '/users': typeof AppUsersRoute
   '/incidents/$incidentId': typeof AppIncidentsIncidentIdRoute
   '/threat-hunting/timeline/$incidentId': typeof AppThreatHuntingTimelineIncidentIdRoute
@@ -183,6 +191,7 @@ export interface FileRoutesById {
   '/_app/rules': typeof AppRulesRoute
   '/_app/security': typeof AppSecurityRoute
   '/_app/soar': typeof AppSoarRoute
+  '/_app/threat-intel': typeof AppThreatIntelRoute
   '/_app/users': typeof AppUsersRoute
   '/_app/incidents/$incidentId': typeof AppIncidentsIncidentIdRoute
   '/_app/threat-hunting/timeline/$incidentId': typeof AppThreatHuntingTimelineIncidentIdRoute
@@ -205,6 +214,7 @@ export interface FileRouteTypes {
     | '/rules'
     | '/security'
     | '/soar'
+    | '/threat-intel'
     | '/users'
     | '/incidents/$incidentId'
     | '/threat-hunting/timeline/$incidentId'
@@ -225,6 +235,7 @@ export interface FileRouteTypes {
     | '/rules'
     | '/security'
     | '/soar'
+    | '/threat-intel'
     | '/users'
     | '/incidents/$incidentId'
     | '/threat-hunting/timeline/$incidentId'
@@ -246,6 +257,7 @@ export interface FileRouteTypes {
     | '/_app/rules'
     | '/_app/security'
     | '/_app/soar'
+    | '/_app/threat-intel'
     | '/_app/users'
     | '/_app/incidents/$incidentId'
     | '/_app/threat-hunting/timeline/$incidentId'
@@ -285,6 +297,13 @@ declare module '@tanstack/react-router' {
       path: '/users'
       fullPath: '/users'
       preLoaderRoute: typeof AppUsersRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/threat-intel': {
+      id: '/_app/threat-intel'
+      path: '/threat-intel'
+      fullPath: '/threat-intel'
+      preLoaderRoute: typeof AppThreatIntelRouteImport
       parentRoute: typeof AppRoute
     }
     '/_app/soar': {
@@ -421,6 +440,7 @@ interface AppRouteChildren {
   AppRulesRoute: typeof AppRulesRoute
   AppSecurityRoute: typeof AppSecurityRoute
   AppSoarRoute: typeof AppSoarRoute
+  AppThreatIntelRoute: typeof AppThreatIntelRoute
   AppUsersRoute: typeof AppUsersRoute
   AppThreatHuntingTimelineIncidentIdRoute: typeof AppThreatHuntingTimelineIncidentIdRoute
 }
@@ -439,6 +459,7 @@ const AppRouteChildren: AppRouteChildren = {
   AppRulesRoute: AppRulesRoute,
   AppSecurityRoute: AppSecurityRoute,
   AppSoarRoute: AppSoarRoute,
+  AppThreatIntelRoute: AppThreatIntelRoute,
   AppUsersRoute: AppUsersRoute,
   AppThreatHuntingTimelineIncidentIdRoute:
     AppThreatHuntingTimelineIncidentIdRoute,

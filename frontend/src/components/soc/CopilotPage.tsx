@@ -10,6 +10,9 @@ const PROMPTS = [
   "Show DoS incidents",
   "Show blocked IPs",
   "Show MITRE T1110 activity",
+  "Is 203.0.113.10 malicious?",
+  "Lookup domain evil.example",
+  "Show threat feed",
 ];
 
 type Msg = { role: "user" | "assistant"; content: string };
@@ -31,7 +34,7 @@ export function CopilotPage() {
     {
       role: "assistant",
       content:
-        "Ask me about failed logins, high severity alerts, DoS incidents, blocked IPs, hosts, or MITRE techniques.",
+        "Ask me about failed logins, high severity alerts, DoS incidents, blocked IPs, threat intelligence, hosts, or MITRE techniques.",
     },
   ]);
   const [input, setInput] = React.useState("");

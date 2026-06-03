@@ -101,4 +101,50 @@ describe("api client", () => {
       }),
     );
   });
+
+  it("calls threat intelligence endpoints", async () => {
+    const fetchMock = vi.spyOn(globalThis, "fetch").mockImplementation(() =>
+      Promise.resolve(
+        new Response(JSON.stringify({ ok: true, items: [] }), {
+          status: 200,
+          headers: { "content-type": "application/json" },
+        }),
+      ),
+    );
+
+    await backend.lookupThreatIntel("203.0.113.10");
+    await backend.bulkLookupThreatIntel(["203.0.113.10", "evil.example"]);
+    await backend.getThreatIntelFeed();
+    await backend.enrichAlertThreatIntel("alert-1");
+    await backend.enrichIncidentThreatIntel("incident-1");
+
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      1,
+      "http://127.0.0.1/api/threat-intel/lookup?indicator=203.0.113.10",
+      expect.any(Object),
+    );
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      2,
+      "http://127.0.0.1/api/threat-intel/bulk-lookup",
+      expect.objectContaining({
+        method: "POST",
+        body: JSON.stringify({ indicators: ["203.0.113.10", "evil.example"] }),
+      }),
+    );
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      3,
+      "http://127.0.0.1/api/threat-intel/feed",
+      expect.any(Object),
+    );
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      4,
+      "http://127.0.0.1/api/threat-intel/enrich-alert/alert-1",
+      expect.objectContaining({ method: "POST" }),
+    );
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      5,
+      "http://127.0.0.1/api/threat-intel/enrich-incident/incident-1",
+      expect.objectContaining({ method: "POST" }),
+    );
+  });
 });

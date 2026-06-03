@@ -11,6 +11,7 @@ from app.db.client import (
     response_actions_collection,
     security_blocks_collection,
 )
+from app.services.threat_intel_service import get_feed, lookup_ioc
 
 SEVERITY_WEIGHTS = {
     "informational": 5,
@@ -172,6 +173,21 @@ async def interpret_soc_query(query: str, organization_id: str) -> dict:
         endpoint = "/soar/blocked-ips"
         explanation = "The query asks for response actions that blocked source IPs."
         preview = await _blocked_ips_preview(organization_id)
+    elif "threat feed" in normalized or "malicious indicators" in normalized:
+        intent = "threat_feed"
+        filters = {"verdict": "malicious"} if "malicious indicators" in normalized else {}
+        endpoint = "/api/threat-intel/feed"
+        explanation = "Showing deterministic internal threat intelligence feed."
+        feed_items = get_feed()["items"]
+        if filters.get("verdict"):
+            feed_items = [item for item in feed_items if item.get("verdict") == filters["verdict"]]
+        preview = {"count": len(feed_items), "sample": feed_items[:5]}
+    elif threat_indicator := _threat_lookup_indicator(normalized):
+        intent = "threat_lookup"
+        filters = {"indicator": threat_indicator}
+        endpoint = f"/api/threat-intel/lookup?indicator={threat_indicator}"
+        explanation = f"Looking up threat intelligence for {threat_indicator}."
+        preview = lookup_ioc(threat_indicator)
     elif "incident" in normalized:
         intent = "show_incidents"
         endpoint = "/incidents/"
@@ -390,6 +406,19 @@ def _severity_alert_query(normalized_query: str) -> str | None:
         match = re.search(pattern, normalized_query)
         if match:
             return next(group for group in match.groups() if group)
+    return None
+
+
+def _threat_lookup_indicator(normalized_query: str) -> str | None:
+    patterns = [
+        r"\bis\s+([^\s?]+)\s+malicious\??$",
+        r"\bcheck\s+(?:ip|domain|hash|url|email)?\s*([^\s?]+)",
+        r"\blookup\s+(?:ip|domain|hash|url|email)?\s*([^\s?]+)",
+    ]
+    for pattern in patterns:
+        match = re.search(pattern, normalized_query)
+        if match:
+            return match.group(1).strip(" ?.,;")
     return None
 
 

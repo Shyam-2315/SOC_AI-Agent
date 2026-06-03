@@ -1,5 +1,5 @@
 import "@testing-library/jest-dom/vitest";
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { backend } from "@/lib/api";
 import { CopilotPage } from "./CopilotPage";
@@ -36,5 +36,29 @@ describe("CopilotPage", () => {
     });
     expect(await screen.findByText("show_failed_logins")).toBeInTheDocument();
     expect(screen.getByText("/alerts/?event_type=failed_login")).toBeInTheDocument();
+  });
+
+  it("renders threat lookup query results", async () => {
+    const user = userEvent.setup();
+    vi.spyOn(backend, "aiCopilotQuery").mockResolvedValue({
+      intent: "threat_lookup",
+      filters: { indicator: "203.0.113.10" },
+      backend_endpoint_suggestion: "/api/threat-intel/lookup?indicator=203.0.113.10",
+      explanation: "Looking up threat intelligence for 203.0.113.10.",
+      result_preview: {
+        indicator: "203.0.113.10",
+        verdict: "malicious",
+        reputation_score: 95,
+      },
+    });
+
+    render(<CopilotPage />);
+
+    await user.type(screen.getByPlaceholderText("Ask Copilot..."), "is 203.0.113.10 malicious?");
+    await user.keyboard("{Enter}");
+
+    expect(await screen.findByText("threat_lookup")).toBeInTheDocument();
+    expect(screen.getByText("/api/threat-intel/lookup?indicator=203.0.113.10")).toBeInTheDocument();
+    expect(within(screen.getByTestId("copilot-result-card")).getByText(/"verdict": "malicious"/)).toBeInTheDocument();
   });
 });

@@ -375,6 +375,54 @@ export type AiCopilotQueryResponse = {
   } | null;
 };
 
+export type ThreatIntelVerdict = "clean" | "suspicious" | "malicious" | "unknown";
+
+export type ThreatIntelRecord = {
+  indicator: string;
+  type: "ip" | "domain" | "url" | "hash" | "email";
+  reputation_score: number;
+  verdict: ThreatIntelVerdict;
+  source: "internal" | "demo_feed" | "imported";
+  tags: string[];
+  first_seen?: string | null;
+  last_seen?: string | null;
+  description?: string | null;
+  confidence: number;
+};
+
+export type ThreatIntelLookupResponse = {
+  indicator: string;
+  normalized_indicator: string;
+  type?: ThreatIntelRecord["type"] | null;
+  reputation_score: number;
+  verdict: ThreatIntelVerdict;
+  source?: ThreatIntelRecord["source"] | null;
+  tags: string[];
+  first_seen?: string | null;
+  last_seen?: string | null;
+  description?: string | null;
+  confidence: number;
+  explanation: string;
+};
+
+export type ThreatIntelEnrichmentResponse = {
+  matched_iocs: ThreatIntelLookupResponse[];
+  highest_reputation_score: number;
+  threat_verdict: ThreatIntelVerdict;
+  recommended_action: string;
+  explanation: string[];
+};
+
+export type IncidentThreatIntelEnrichmentResponse = {
+  incident_id: string;
+  matched_indicators: ThreatIntelLookupResponse[];
+  affected_assets: string[];
+  malicious_source_ips: string[];
+  suspicious_domains: string[];
+  highest_risk: number;
+  recommended_actions: string[];
+};
+
 export type CorrelationGroupRecord = BackendDocument & {
   correlation_id?: string;
   incident_id?: string | null;
@@ -872,6 +920,25 @@ export const backend = {
       method: "POST",
       body: JSON.stringify({ query }),
     }),
+  lookupThreatIntel: (indicator: string) =>
+    api<ThreatIntelLookupResponse>(
+      withQuery("/api/threat-intel/lookup", { indicator }),
+    ),
+  bulkLookupThreatIntel: (indicators: string[]) =>
+    api<{ items: ThreatIntelLookupResponse[] }>("/api/threat-intel/bulk-lookup", {
+      method: "POST",
+      body: JSON.stringify({ indicators }),
+    }),
+  getThreatIntelFeed: () => api<{ items: ThreatIntelRecord[] }>("/api/threat-intel/feed"),
+  enrichAlertThreatIntel: (alertId: string) =>
+    api<ThreatIntelEnrichmentResponse>(`/api/threat-intel/enrich-alert/${alertId}`, {
+      method: "POST",
+    }),
+  enrichIncidentThreatIntel: (incidentId: string) =>
+    api<IncidentThreatIntelEnrichmentResponse>(
+      `/api/threat-intel/enrich-incident/${incidentId}`,
+      { method: "POST" },
+    ),
   securityTrafficSummary: () => api<SecurityTrafficSummary>("/security/traffic/summary"),
   securityBlockedIps: () => api<{ items: SecurityBlockedIpRecord[] }>("/security/blocked-ips"),
   securityBlockIp: (payload: { ip: string; reason?: string; duration_minutes?: number }) =>
