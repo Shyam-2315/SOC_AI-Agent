@@ -9,6 +9,7 @@ from app.api.routes.incidents import router as incidents_router
 from app.api.routes.ingestion import router as ingestion_router
 from app.api.routes.logs import router as logs_router
 from app.api.routes.organizations import router as organizations_router
+from app.api.routes.reports import router as reports_router
 from app.api.routes.rule_packs import router as rule_packs_router
 from app.api.routes.rules import router as rules_router
 from app.api.routes.security import router as security_router
@@ -33,3 +34,4 @@ api_router.include_router(soar_router)
 api_router.include_router(threat_hunting_router)
 api_router.include_router(threat_intel_router)
 api_router.include_router(copilot_router)
+api_router.include_router(reports_router)
