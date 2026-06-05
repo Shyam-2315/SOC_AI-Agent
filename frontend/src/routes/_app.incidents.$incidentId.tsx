@@ -2,7 +2,7 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { type ReactNode, useState } from "react";
 import { AttackGraph } from "@/components/soc/AttackGraph";
-import { IncidentAiPanel } from "@/components/soc/AiCopilotPanels";
+import { CopilotV2Panel, IncidentAiPanel } from "@/components/soc/AiCopilotPanels";
 import { IncidentThreatIntelPanel } from "@/components/soc/ThreatIntel";
 import { PageHeader } from "@/components/soc/PageHeader";
 import { Btn } from "@/components/soc/Btn";
@@ -320,6 +320,7 @@ function IncidentInvestigationPage() {
         </section>
 
         <aside className="space-y-4">
+          <CopilotV2Panel incidentId={incidentId} />
           <IncidentAiPanel incidentId={incidentId} />
           <IncidentThreatIntelPanel incidentId={incidentId} />
 

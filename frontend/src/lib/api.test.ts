@@ -102,6 +102,61 @@ describe("api client", () => {
     );
   });
 
+  it("calls SOC Analyst Copilot v2 endpoints", async () => {
+    const fetchMock = vi.spyOn(globalThis, "fetch").mockImplementation(() =>
+      Promise.resolve(
+        new Response(JSON.stringify({ ok: true }), {
+          status: 200,
+          headers: { "content-type": "application/json" },
+        }),
+      ),
+    );
+
+    await backend.copilotV2Ask({
+      question: "Why critical?",
+      incident_id: "incident-1",
+    });
+    await backend.copilotV2IncidentSummary("incident-1");
+    await backend.copilotV2AttackChainSummary("chain-1");
+    await backend.copilotV2IncidentExecutiveReport("incident-1");
+    await backend.copilotV2IncidentTechnicalReport("incident-1");
+    await backend.copilotV2AttackChainRecommendedActions("chain-1");
+
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      1,
+      "http://127.0.0.1/copilot/v2/ask",
+      expect.objectContaining({
+        method: "POST",
+        body: JSON.stringify({ question: "Why critical?", incident_id: "incident-1" }),
+      }),
+    );
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      2,
+      "http://127.0.0.1/copilot/v2/incidents/incident-1/summary",
+      expect.any(Object),
+    );
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      3,
+      "http://127.0.0.1/copilot/v2/attack-chains/chain-1/summary",
+      expect.any(Object),
+    );
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      4,
+      "http://127.0.0.1/copilot/v2/incidents/incident-1/executive-report",
+      expect.any(Object),
+    );
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      5,
+      "http://127.0.0.1/copilot/v2/incidents/incident-1/technical-report",
+      expect.any(Object),
+    );
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      6,
+      "http://127.0.0.1/copilot/v2/attack-chains/chain-1/recommended-actions",
+      expect.any(Object),
+    );
+  });
+
   it("calls threat intelligence endpoints", async () => {
     const fetchMock = vi.spyOn(globalThis, "fetch").mockImplementation(() =>
       Promise.resolve(

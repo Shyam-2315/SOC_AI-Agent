@@ -272,3 +272,15 @@ auto_detect_failures() {
   done
   return "$failed"
 }
+
+if [[ "${BASH_SOURCE[0]}" == "$0" ]]; then
+  ensure_docker_available
+  wait_for_core_services
+  run_health_suite
+  auto_detect_failures
+  if [[ "${HEALTH_WARN:-0}" -eq 1 ]]; then
+    warn "Health checks completed with non-blocking warnings"
+  else
+    ok "Health checks passed"
+  fi
+fi

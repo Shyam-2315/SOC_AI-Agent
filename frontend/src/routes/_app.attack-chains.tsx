@@ -2,6 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
 import { Btn } from "@/components/soc/Btn";
+import { CopilotV2Panel } from "@/components/soc/AiCopilotPanels";
 import { ClientDateTime } from "@/components/soc/ClientOnly";
 import { PageHeader } from "@/components/soc/PageHeader";
 import { SeverityBadge, StatusBadge } from "@/components/soc/SeverityBadge";
@@ -243,7 +244,10 @@ function AttackChainsPage() {
 
               <div className="grid gap-5 lg:grid-cols-[minmax(0,1.25fr)_minmax(320px,0.75fr)]">
                 <TimelinePanel timeline={timeline} loading={story.isFetching} />
-                <ActionsPanel actions={actions} techniques={selected.mitre_techniques} />
+                <div className="space-y-5">
+                  <CopilotV2Panel key={activeId} attackChainId={activeId} />
+                  <ActionsPanel actions={actions} techniques={selected.mitre_techniques} />
+                </div>
               </div>
 
               <GraphPanel graph={graph.data} loading={graph.isFetching} />

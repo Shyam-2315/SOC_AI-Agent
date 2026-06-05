@@ -51,6 +51,7 @@ The platform provides:
 - **Threat Intelligence Correlation** - External threat intel integration
 - **AI Security Copilot Core** - Deterministic alert triage, incident summaries, false-positive scoring, recommended actions, and natural-language SOC query parsing without external AI APIs
 - **AI Attack Correlation & Threat Story Engine** - Tenant-scoped attack chains that correlate related alerts into timelines, MITRE ATT&CK techniques, risk scores, summaries, actions, and graph data
+- **SOC Analyst Copilot v2** - Context-aware incident and attack-chain assistant for criticality, timelines, MITRE techniques, next investigation steps, SOAR actions, and executive or technical summaries
 
 ### 🎯 Alert & Incident Management
 - **Smart Alert Routing** - Intelligent grouping and correlation
@@ -341,6 +342,66 @@ cd frontend && npm test -- --run src/lib/api.test.ts src/routes/_app.copilot.tes
 3. Review the parsed intent, filters, suggested backend query, explanation, and preview.
 4. Open Alerts and review the AI alert triage panel for the latest alert.
 5. Open an incident detail page and review the AI incident summary and recommended actions.
+
+## SOC Analyst Copilot v2
+
+Copilot v2 is a context-aware analyst assistant for incident and attack-chain workflows. It is deterministic and rule-based for now; it does not call external AI APIs. Answers are grounded in tenant-scoped incident records, related alerts, attack chains, MITRE mappings, local threat intelligence, and SOAR response history.
+
+### What It Answers
+
+- Why is this incident critical?
+- What happened?
+- Which MITRE techniques are involved?
+- What should I investigate next?
+- What SOAR action should I take?
+- Generate executive summary
+- Generate technical summary
+
+### API Endpoints
+
+- `POST /copilot/v2/ask`
+- `GET /copilot/v2/incidents/{incident_id}/summary`
+- `GET /copilot/v2/attack-chains/{chain_id}/summary`
+- `GET /copilot/v2/incidents/{incident_id}/executive-report`
+- `GET /copilot/v2/incidents/{incident_id}/technical-report`
+- `GET /copilot/v2/attack-chains/{chain_id}/recommended-actions`
+
+`POST /copilot/v2/ask` accepts exactly one context identifier:
+
+```json
+{
+  "incident_id": "665f...",
+  "question": "Why is this incident critical?"
+}
+```
+
+or:
+
+```json
+{
+  "attack_chain_id": "665f...",
+  "question": "Which MITRE techniques are involved?"
+}
+```
+
+Responses include a short explanation, evidence used, MITRE techniques, risk reasoning, suggested investigation steps, suggested response actions, and a confidence score.
+
+### Demo Flow
+
+1. Sign in as an admin or analyst.
+2. Open an incident detail page.
+3. Use the `SOC Analyst Copilot v2` panel to ask `Why is this incident critical?`.
+4. Review the evidence, MITRE techniques, risk reasoning, investigation steps, and recommended actions.
+5. Click `Executive` or `Technical` to generate a report-style summary.
+6. Open `Attack Chains`, select a generated chain, and use the Copilot v2 panel to ask for MITRE techniques or recommended SOAR actions.
+
+### Security Behavior
+
+- All Copilot v2 endpoints require JWT authentication.
+- The endpoints use the existing `copilot:query` RBAC permission, currently granted to admins and analysts.
+- Tenant access is enforced through the authenticated user's `organization_id`.
+- Cross-tenant incidents and attack chains are not exposed; lookups follow the project pattern and return `404` when the resource is outside the tenant or missing.
+- Viewers can still use read-only incident and attack-chain pages according to existing permissions, but cannot query Copilot v2 unless RBAC is expanded.
 
 ## Threat Intelligence Engine Phase 2
 

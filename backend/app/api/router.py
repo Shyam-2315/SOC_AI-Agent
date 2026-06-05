@@ -6,6 +6,7 @@ from app.api.routes.ai_copilot import router as ai_copilot_router
 from app.api.routes.auth import router as auth_router
 from app.api.routes.collectors import router as collectors_router
 from app.api.routes.copilot import router as copilot_router
+from app.api.routes.copilot_v2 import router as copilot_v2_router
 from app.api.routes.incidents import router as incidents_router
 from app.api.routes.ingestion import router as ingestion_router
 from app.api.routes.logs import router as logs_router
@@ -36,4 +37,5 @@ api_router.include_router(soar_router)
 api_router.include_router(threat_hunting_router)
 api_router.include_router(threat_intel_router)
 api_router.include_router(copilot_router)
+api_router.include_router(copilot_v2_router)
 api_router.include_router(reports_router)

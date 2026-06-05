@@ -456,6 +456,53 @@ export type AiCopilotQueryResponse = {
   } | null;
 };
 
+export type CopilotV2Suggestion = {
+  action: string;
+  label: string;
+  rationale: string;
+  priority: "low" | "medium" | "high" | "critical";
+};
+
+export type CopilotV2ContextSummary = {
+  context_type: "incident" | "attack_chain";
+  context_id: string;
+  title: string;
+  severity?: string | null;
+  status?: string | null;
+  risk_score?: number | null;
+  alert_count: number;
+  affected_assets: string[];
+  source_ips: string[];
+  timeline: string[];
+  threat_intel: string[];
+  soar_actions: string[];
+};
+
+export type CopilotV2AnswerResponse = {
+  context: CopilotV2ContextSummary;
+  short_explanation: string;
+  evidence_used: string[];
+  mitre_techniques: MitreMapping[];
+  risk_reasoning: string[];
+  suggested_investigation_steps: string[];
+  suggested_response_actions: CopilotV2Suggestion[];
+  confidence_score: number;
+};
+
+export type CopilotV2ReportResponse = {
+  report_type: "executive" | "technical";
+  subject_type: "incident" | "attack_chain";
+  subject_id: string;
+  title: string;
+  summary: string;
+  evidence_used: string[];
+  mitre_techniques: MitreMapping[];
+  risk_reasoning: string[];
+  recommended_actions: CopilotV2Suggestion[];
+  confidence_score: number;
+  generated_at: string;
+};
+
 export type ThreatIntelVerdict = "clean" | "suspicious" | "malicious" | "unknown";
 
 export type ThreatIntelRecord = {
@@ -1017,6 +1064,31 @@ export const backend = {
       method: "POST",
       body: JSON.stringify({ query }),
     }),
+  copilotV2Ask: (payload: {
+    question: string;
+    incident_id?: string;
+    attack_chain_id?: string;
+  }) =>
+    api<CopilotV2AnswerResponse>("/copilot/v2/ask", {
+      method: "POST",
+      body: JSON.stringify(payload),
+    }),
+  copilotV2IncidentSummary: (incidentId: string) =>
+    api<CopilotV2ContextSummary>(`/copilot/v2/incidents/${incidentId}/summary`),
+  copilotV2AttackChainSummary: (chainId: string) =>
+    api<CopilotV2ContextSummary>(`/copilot/v2/attack-chains/${chainId}/summary`),
+  copilotV2IncidentExecutiveReport: (incidentId: string) =>
+    api<CopilotV2ReportResponse>(
+      `/copilot/v2/incidents/${incidentId}/executive-report`,
+    ),
+  copilotV2IncidentTechnicalReport: (incidentId: string) =>
+    api<CopilotV2ReportResponse>(
+      `/copilot/v2/incidents/${incidentId}/technical-report`,
+    ),
+  copilotV2AttackChainRecommendedActions: (chainId: string) =>
+    api<CopilotV2AnswerResponse>(
+      `/copilot/v2/attack-chains/${chainId}/recommended-actions`,
+    ),
   lookupThreatIntel: (indicator: string) =>
     api<ThreatIntelLookupResponse>(
       withQuery("/api/threat-intel/lookup", { indicator }),

@@ -3,6 +3,7 @@ __all__ = [
     "auth",
     "collectors",
     "copilot",
+    "copilot_v2",
     "incidents",
     "ingestion",
     "logs",
