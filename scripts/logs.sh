@@ -32,7 +32,9 @@ show_status() {
   done
 
   header "Endpoint Status"
-  poll_url "Frontend" "${FRONTEND_URL:-http://127.0.0.1:8080}/" 1 1 || true
-  poll_url "Backend" "${BACKEND_URL:-http://127.0.0.1:8000}/health" 1 1 || true
+  poll_url "Frontend" "$FRONTEND_URL/" 1 1 || true
+  poll_url "Backend" "$BACKEND_URL/health" 1 1 || true
   check_websocket_endpoint || true
+  check_frontend_routes || true
+  check_api_validation || true
 }

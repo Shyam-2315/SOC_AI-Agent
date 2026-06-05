@@ -10,6 +10,7 @@ router = APIRouter(
 )
 
 
+@router.get("/")
 @router.get("/actions")
 async def get_response_actions(
     incident_id: str | None = Query(default=None),

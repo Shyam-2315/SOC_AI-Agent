@@ -47,10 +47,10 @@ Legacy module paths under `api/`, `core/`, `models/`, `schemas/`, `websocket/`, 
 
 ## One-Command Startup
 
-From the project root, start the full platform and seed demo data:
+From the project root, start the full platform:
 
 ```bash
-./start.sh --build --seed-demo
+./start.sh --build
 ```
 
 This starts:
@@ -68,9 +68,9 @@ Supported commands:
 ```bash
 ./start.sh
 ./start.sh --build
-./start.sh --seed-demo
-./start.sh --local
+./start.sh --dev
 ./start.sh --prod
+./start.sh --status
 ./stop.sh
 ./restart.sh
 ./status.sh
@@ -98,15 +98,26 @@ The frontend container is exposed directly on `http://127.0.0.1:8080`. Browser A
 
 `VITE_API_BASE_URL` is the frontend source of truth for REST traffic when it is set. For the Docker stack it should stay `http://127.0.0.1`, which prevents stale browser overrides from accidentally sending API calls to the direct frontend UI container on `:8080`.
 
-`./start.sh` verifies Docker is running, verifies `backend/.env` exists, builds images, starts the stack, waits for backend, MongoDB, Redis, Celery, syslog receiver, Nginx and frontend health, prints URLs, and seeds demo data when `DEMO_MODE=true` or `--seed-demo` is passed.
+`./start.sh` verifies Docker is running, verifies `backend/.env` exists, builds images when requested, starts the stack, waits for backend, MongoDB, Redis, Celery, syslog receiver, Nginx and frontend health, checks key frontend routes and protected API routes, and prints URLs.
 
 Fresh clone workflow:
 
 ```bash
 cp backend/.env.example backend/.env
 # edit backend/.env secrets and local values
-./start.sh --seed-demo
+./start.sh --build
+docker exec -it backend-app-1 python scripts/seed_attack_chain_demo.py
 ```
+
+Local Attack Chains demo seed:
+
+```bash
+cd backend
+.venv/bin/python scripts/seed_attack_chain_demo.py
+# or: PYTHONPATH=. .venv/bin/python scripts/seed_attack_chain_demo.py
+```
+
+For local execution, Mongo must be reachable from the host. If `.env` uses the Docker-only hostname `mongo`, expose Mongo with the local compose override and override `MONGO_URL` to a localhost URI for this command.
 
 Troubleshooting:
 
@@ -120,6 +131,8 @@ curl http://127.0.0.1/health/ready
 ```
 
 If port `80`, `443`, or `8080` is already in use, stop the conflicting process or change the port mapping in `backend/docker-compose.prod.yml`.
+
+If an API route returns frontend HTML or a browser page instead of JSON, check the nginx proxy allowlist in `backend/docker/nginx/templates/http.conf.template` and `backend/docker/nginx/templates/https.conf.template`. API prefixes such as `/attack-chains`, `/rule-packs`, `/threat-intel`, `/copilot`, and `/api/...` must proxy to the FastAPI upstream.
 
 Start the full stack with the active `.env`:
 

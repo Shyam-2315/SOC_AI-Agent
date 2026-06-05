@@ -75,13 +75,13 @@ async def upsert_user(
             "$set": {
                 "username": username,
                 "email": email,
+                "password": hash_password(password),
                 "role": role.value,
                 "organization_id": organization_id,
                 "disabled": False,
                 "updated_at": now,
             },
             "$setOnInsert": {
-                "password": hash_password(password),
                 "created_at": now,
                 "created_by": "demo-seed",
             },
@@ -491,8 +491,6 @@ async def seed_demo() -> None:
     print(f"admin={DEMO_ADMIN_EMAIL}")
     print(f"analyst={DEMO_ANALYST_EMAIL}")
     print(f"viewer={DEMO_VIEWER_EMAIL}")
-    print(f"password={DEMO_ADMIN_PASSWORD}")
-    print(f"collector_token={DEMO_COLLECTOR_TOKEN}")
 
 
 async def main() -> None:

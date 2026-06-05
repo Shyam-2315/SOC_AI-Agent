@@ -19,6 +19,7 @@ async def create_rule_endpoint(
     return await create_rule(rule, user)
 
 
+@router.get("/")
 @router.get("")
 async def list_rules_endpoint(
     pagination: Pagination = Depends(pagination_params),

@@ -7,7 +7,7 @@ The project uses one active environment file: `backend/.env`.
 For local host access to MongoDB and Redis:
 
 ```bash
-cd /home/shyam2315/Projects/ai-soc-platform/backend
+cd backend
 docker compose -f docker-compose.prod.yml -f docker-compose.local.yml up -d mongo redis
 ```
 
@@ -23,8 +23,8 @@ CELERY_RESULT_BACKEND=redis://:Redis123@localhost:6379/0
 ## 2. Start The Backend API
 
 ```bash
-cd /home/shyam2315/Projects/ai-soc-platform/backend
-source venv/bin/activate
+cd backend
+source .venv/bin/activate
 uvicorn main:app --host 127.0.0.1 --port 8000 --reload
 ```
 
@@ -40,8 +40,8 @@ curl http://127.0.0.1:8000/health
 Use this when `ALERT_PROCESSING_MODE=celery`.
 
 ```bash
-cd /home/shyam2315/Projects/ai-soc-platform/backend
-source venv/bin/activate
+cd backend
+source .venv/bin/activate
 celery -A app.workers.celery_app.celery_app worker --loglevel=info -Q alert-processing
 ```
 
@@ -50,11 +50,10 @@ celery -A app.workers.celery_app.celery_app worker --loglevel=info -Q alert-proc
 From the project root, the complete connected platform starts with one command:
 
 ```bash
-cd /home/shyam2315/Projects/ai-soc-platform
-./start.sh --build --seed-demo
+./start.sh --build
 ```
 
-This starts FastAPI, MongoDB, Redis, Celery, Nginx, the Lovable frontend, WebSockets, and the demo seed.
+This starts FastAPI, MongoDB, Redis, Celery, Nginx, the frontend, and WebSockets.
 
 Open:
 
@@ -68,9 +67,25 @@ WebSocket:          ws://127.0.0.1/ws/alerts?token=<jwt>
 The frontend direct container on `:8080` is only the browser UI. Browser REST and WebSocket traffic should go through Nginx on `http://127.0.0.1` and `ws://127.0.0.1`.
 
 ```bash
-cd /home/shyam2315/Projects/ai-soc-platform/backend
+cd backend
 docker compose -f docker-compose.prod.yml up -d --build
 ```
+
+Seed Attack Chains demo data after the backend is healthy:
+
+```bash
+docker exec -it backend-app-1 python scripts/seed_attack_chain_demo.py
+```
+
+For local backend execution:
+
+```bash
+cd backend
+.venv/bin/python scripts/seed_attack_chain_demo.py
+# or: PYTHONPATH=. .venv/bin/python scripts/seed_attack_chain_demo.py
+```
+
+This local form requires Mongo to be reachable from the host. If `.env` uses the Docker-only hostname `mongo`, expose Mongo with the local compose override and run the command with a localhost `MONGO_URL` override.
 
 Check services:
 
@@ -97,7 +112,7 @@ WS:  ws://127.0.0.1
 Start it with:
 
 ```bash
-cd /home/shyam2315/Projects/ai-soc-platform/frontend
+cd frontend
 npm install
 npm run dev
 ```

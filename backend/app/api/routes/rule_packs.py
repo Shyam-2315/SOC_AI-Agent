@@ -28,6 +28,7 @@ async def create_pack_endpoint(
     return await create_pack(pack, user)
 
 
+@router.get("/")
 @router.get("")
 async def list_packs_endpoint(
     pagination: Pagination = Depends(pagination_params),

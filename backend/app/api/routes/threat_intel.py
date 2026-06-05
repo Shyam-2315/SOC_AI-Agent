@@ -19,8 +19,14 @@ from app.services.threat_intel_service import (
 
 
 router = APIRouter(prefix="/api/threat-intel", tags=["Threat Intelligence"])
+alias_router = APIRouter(
+    prefix="/threat-intel",
+    tags=["Threat Intelligence"],
+    include_in_schema=False,
+)
 
 
+@alias_router.get("/lookup", response_model=ThreatIntelLookupResponse)
 @router.get("/lookup", response_model=ThreatIntelLookupResponse)
 async def lookup_threat_intel(
     indicator: str = Query(min_length=1, max_length=500),
@@ -30,6 +36,7 @@ async def lookup_threat_intel(
     return lookup_ioc(indicator)
 
 
+@alias_router.post("/bulk-lookup", response_model=BulkThreatIntelLookupResponse)
 @router.post("/bulk-lookup", response_model=BulkThreatIntelLookupResponse)
 async def bulk_lookup_threat_intel(
     payload: BulkThreatIntelLookupRequest,
@@ -39,6 +46,8 @@ async def bulk_lookup_threat_intel(
     return bulk_lookup_iocs(payload.indicators)
 
 
+@alias_router.get("/", response_model=ThreatIntelFeedResponse)
+@alias_router.get("/feed", response_model=ThreatIntelFeedResponse)
 @router.get("/feed", response_model=ThreatIntelFeedResponse)
 async def threat_intel_feed(
     user=Depends(require_permission("threat_intel:read")),
@@ -47,6 +56,7 @@ async def threat_intel_feed(
     return get_feed()
 
 
+@alias_router.post("/enrich-alert/{alert_id}", response_model=ThreatIntelEnrichmentResponse)
 @router.post("/enrich-alert/{alert_id}", response_model=ThreatIntelEnrichmentResponse)
 async def enrich_alert_endpoint(
     alert_id: str,
@@ -56,6 +66,10 @@ async def enrich_alert_endpoint(
 
 
 @router.post(
+    "/enrich-incident/{incident_id}",
+    response_model=IncidentThreatIntelEnrichmentResponse,
+)
+@alias_router.post(
     "/enrich-incident/{incident_id}",
     response_model=IncidentThreatIntelEnrichmentResponse,
 )

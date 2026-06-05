@@ -17,6 +17,7 @@ import { Route as AppThreatIntelRouteImport } from './routes/_app.threat-intel'
 import { Route as AppSoarRouteImport } from './routes/_app.soar'
 import { Route as AppSecurityRouteImport } from './routes/_app.security'
 import { Route as AppRulesRouteImport } from './routes/_app.rules'
+import { Route as AppRulePacksRouteImport } from './routes/_app.rule-packs'
 import { Route as AppRealtimeRouteImport } from './routes/_app.realtime'
 import { Route as AppPacksRouteImport } from './routes/_app.packs'
 import { Route as AppOrgsRouteImport } from './routes/_app.orgs'
@@ -68,6 +69,11 @@ const AppSecurityRoute = AppSecurityRouteImport.update({
 const AppRulesRoute = AppRulesRouteImport.update({
   id: '/rules',
   path: '/rules',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppRulePacksRoute = AppRulePacksRouteImport.update({
+  id: '/rule-packs',
+  path: '/rule-packs',
   getParentRoute: () => AppRoute,
 } as any)
 const AppRealtimeRoute = AppRealtimeRouteImport.update({
@@ -151,6 +157,7 @@ export interface FileRoutesByFullPath {
   '/orgs': typeof AppOrgsRoute
   '/packs': typeof AppPacksRoute
   '/realtime': typeof AppRealtimeRoute
+  '/rule-packs': typeof AppRulePacksRoute
   '/rules': typeof AppRulesRoute
   '/security': typeof AppSecurityRoute
   '/soar': typeof AppSoarRoute
@@ -173,6 +180,7 @@ export interface FileRoutesByTo {
   '/orgs': typeof AppOrgsRoute
   '/packs': typeof AppPacksRoute
   '/realtime': typeof AppRealtimeRoute
+  '/rule-packs': typeof AppRulePacksRoute
   '/rules': typeof AppRulesRoute
   '/security': typeof AppSecurityRoute
   '/soar': typeof AppSoarRoute
@@ -197,6 +205,7 @@ export interface FileRoutesById {
   '/_app/orgs': typeof AppOrgsRoute
   '/_app/packs': typeof AppPacksRoute
   '/_app/realtime': typeof AppRealtimeRoute
+  '/_app/rule-packs': typeof AppRulePacksRoute
   '/_app/rules': typeof AppRulesRoute
   '/_app/security': typeof AppSecurityRoute
   '/_app/soar': typeof AppSoarRoute
@@ -221,6 +230,7 @@ export interface FileRouteTypes {
     | '/orgs'
     | '/packs'
     | '/realtime'
+    | '/rule-packs'
     | '/rules'
     | '/security'
     | '/soar'
@@ -243,6 +253,7 @@ export interface FileRouteTypes {
     | '/orgs'
     | '/packs'
     | '/realtime'
+    | '/rule-packs'
     | '/rules'
     | '/security'
     | '/soar'
@@ -266,6 +277,7 @@ export interface FileRouteTypes {
     | '/_app/orgs'
     | '/_app/packs'
     | '/_app/realtime'
+    | '/_app/rule-packs'
     | '/_app/rules'
     | '/_app/security'
     | '/_app/soar'
@@ -337,6 +349,13 @@ declare module '@tanstack/react-router' {
       path: '/rules'
       fullPath: '/rules'
       preLoaderRoute: typeof AppRulesRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/rule-packs': {
+      id: '/_app/rule-packs'
+      path: '/rule-packs'
+      fullPath: '/rule-packs'
+      preLoaderRoute: typeof AppRulePacksRouteImport
       parentRoute: typeof AppRoute
     }
     '/_app/realtime': {
@@ -457,6 +476,7 @@ interface AppRouteChildren {
   AppOrgsRoute: typeof AppOrgsRoute
   AppPacksRoute: typeof AppPacksRoute
   AppRealtimeRoute: typeof AppRealtimeRoute
+  AppRulePacksRoute: typeof AppRulePacksRoute
   AppRulesRoute: typeof AppRulesRoute
   AppSecurityRoute: typeof AppSecurityRoute
   AppSoarRoute: typeof AppSoarRoute
@@ -477,6 +497,7 @@ const AppRouteChildren: AppRouteChildren = {
   AppOrgsRoute: AppOrgsRoute,
   AppPacksRoute: AppPacksRoute,
   AppRealtimeRoute: AppRealtimeRoute,
+  AppRulePacksRoute: AppRulePacksRoute,
   AppRulesRoute: AppRulesRoute,
   AppSecurityRoute: AppSecurityRoute,
   AppSoarRoute: AppSoarRoute,

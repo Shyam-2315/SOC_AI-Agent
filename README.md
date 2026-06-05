@@ -103,12 +103,22 @@ Risk is calculated on a 0-10 scale from alert count, severity weights, affected 
 
 ### Demo Flow
 
-Run the backend, seed demo alerts, then open the frontend `Attack Chains` navigation item:
+Run the backend, seed demo alerts, then open the frontend `Attack Chains` navigation item.
+For Docker:
+
+```bash
+docker exec -it backend-app-1 python scripts/seed_attack_chain_demo.py
+```
+
+For a local backend checkout:
 
 ```bash
 cd backend
 .venv/bin/python scripts/seed_attack_chain_demo.py
+# or: PYTHONPATH=. .venv/bin/python scripts/seed_attack_chain_demo.py
 ```
+
+If `backend/.env` points `MONGO_URL` at the Docker-only hostname `mongo`, run the local command only after exposing Mongo to the host and overriding `MONGO_URL` to a localhost URI for that shell.
 
 The demo creates a suspicious login, PowerShell execution, credential dumping, lateral movement, and data exfiltration sequence for `demo-org`, then generates a complete attack chain.
 
@@ -530,13 +540,15 @@ cd SOC_AI-Agent
 cp backend/.env.example backend/.env
 # Edit backend/.env with your configuration
 
-# Start the full stack with demo data
-./start.sh --build --seed-demo
+# Start the full stack
+./start.sh --build
+
+# Seed Attack Chains demo data after the backend is healthy
+docker exec -it backend-app-1 python scripts/seed_attack_chain_demo.py
 ```
 
 This command:
 - Starts all services (FastAPI, React, MongoDB, Redis, Celery, Nginx)
-- Seeds demo data with sample alerts and incidents
 - Prints service URLs and default credentials
 
 **Access the Platform**
@@ -886,6 +898,7 @@ docker compose -f backend/docker-compose.prod.yml up -d
 
 # Verify health
 curl http://localhost/health/ready
+./start.sh --status
 
 # View logs
 docker compose -f backend/docker-compose.prod.yml logs -f

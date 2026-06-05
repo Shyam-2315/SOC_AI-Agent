@@ -112,7 +112,7 @@ check_websocket_endpoint() {
       return 0
       ;;
     404)
-      warn_check "WebSocket HTTP probe returned 404 for $WS_URL (plain HTTP probe is not authoritative for WS routes)"
+      ok "WebSocket HTTP probe returned 404 for $WS_URL (plain HTTP probe is not authoritative for WS routes)"
       return 0
       ;;
     *)
@@ -143,7 +143,18 @@ check_syslog_listener() {
 check_frontend_routes() {
   header "Frontend Validation"
   local route status
-  for route in / /incidents /alerts /dashboard /attack-chains; do
+  for route in \
+    / \
+    /dashboard \
+    /alerts \
+    /incidents \
+    /attack-chains \
+    /threat-intel \
+    /soar \
+    /realtime \
+    /collectors \
+    /rules \
+    /rule-packs; do
     status="$(curl -sS -o /dev/null -w "%{http_code}" --max-time 5 "${FRONTEND_URL}${route}" || true)"
     if [[ "$status" == "200" ]]; then
       ok "Route ${route} served"
@@ -183,50 +194,57 @@ check_frontend_hydration_logs() {
   ok "No hydration/build failure patterns detected in frontend logs"
 }
 
+api_route_check() {
+  local name="$1"
+  local path="$2"
+  local method="${3:-GET}"
+  local body="${4:-}"
+  local body_tmp status
+  body_tmp="$(mktemp)"
+
+  if [[ -n "$body" ]]; then
+    status="$(curl -sS -o "$body_tmp" -w "%{http_code}" --max-time 5 -X "$method" "$BACKEND_URL$path" -H 'Content-Type: application/json' -d "$body" || true)"
+  else
+    status="$(curl -sS -o "$body_tmp" -w "%{http_code}" --max-time 5 -X "$method" "$BACKEND_URL$path" || true)"
+  fi
+
+  if grep -qiE "<!doctype html|<html" "$body_tmp"; then
+    rm -f "$body_tmp"
+    fail "$name misrouted to frontend HTML ($path, code=${status:-n/a}). Check nginx API proxy allowlist."
+    return 1
+  fi
+  rm -f "$body_tmp"
+
+  case "$status" in
+    200|201|204|401|403|422)
+      ok "$name reachable (code=$status)"
+      return 0
+      ;;
+    307|308)
+      warn_check "$name redirected (code=$status, path=$path)"
+      return 0
+      ;;
+    *)
+      fail "$name failed (path=$path, code=${status:-n/a})"
+      return 1
+      ;;
+  esac
+}
+
 check_api_validation() {
   header "API Validation"
-  local status
   poll_url "Backend /health" "$BACKEND_URL/health" 30 2
-
-  status="$(curl -sS -o /dev/null -w "%{http_code}" --max-time 5 -X POST "$BACKEND_URL/auth/login" -H 'Content-Type: application/json' -d '{}' || true)"
-  if [[ "$status" == "422" || "$status" == "401" || "$status" == "403" || "$status" == "200" ]]; then
-    ok "auth/login route reachable (code=$status)"
-  elif [[ "$status" == "307" ]]; then
-    warn_check "auth/login redirected (code=307)"
-  else
-    fail "auth/login route failed (code=$status)"
-    return 1
-  fi
-
-  status="$(curl -sS -o /dev/null -w "%{http_code}" --max-time 5 "$BACKEND_URL/incidents/" || true)"
-  if [[ "$status" == "401" || "$status" == "403" || "$status" == "422" || "$status" == "200" ]]; then
-    ok "Incidents API reachable (code=$status)"
-  elif [[ "$status" == "307" ]]; then
-    warn_check "Incidents API redirected (code=307)"
-  else
-    fail "Incidents API failed (code=$status)"
-    return 1
-  fi
-
-  status="$(curl -sS -o /dev/null -w "%{http_code}" --max-time 5 "$BACKEND_URL/alerts" || true)"
-  if [[ "$status" == "401" || "$status" == "403" || "$status" == "422" || "$status" == "200" ]]; then
-    ok "Alerts API reachable (code=$status)"
-  elif [[ "$status" == "307" ]]; then
-    warn_check "Alerts API redirected (code=307)"
-  else
-    fail "Alerts API failed (code=$status)"
-    return 1
-  fi
-
-  status="$(curl -sS -o /dev/null -w "%{http_code}" --max-time 5 "$BACKEND_URL/attack-chains/" || true)"
-  if [[ "$status" == "401" || "$status" == "403" || "$status" == "422" ]]; then
-    ok "Attack Chains API reachable (code=$status)"
-  elif [[ "$status" == "307" ]]; then
-    warn_check "Attack Chains API redirected (code=307)"
-  else
-    fail "Attack Chains API failed (code=$status)"
-    return 1
-  fi
+  api_route_check "auth/login route" "/auth/login" "POST" "{}"
+  api_route_check "Alerts API" "/alerts/"
+  api_route_check "Incidents API" "/incidents/"
+  api_route_check "Attack Chains API" "/attack-chains/"
+  api_route_check "Threat Intel API" "/threat-intel/"
+  api_route_check "SOAR API" "/soar/"
+  api_route_check "Collectors API" "/collectors/"
+  api_route_check "Rules API" "/rules/"
+  api_route_check "Rule Packs API" "/rule-packs/"
+  api_route_check "AI Copilot API" "/api/ai/copilot/query" "POST" "{}"
+  api_route_check "Threat Intel legacy API" "/api/threat-intel/feed"
 
   check_websocket_endpoint
   ok "API READY"

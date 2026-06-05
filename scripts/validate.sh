@@ -31,7 +31,10 @@ check_wsl_compat() {
 
 port_occupied_by_stack() {
   local port="$1"
-  docker ps --format '{{.Names}} {{.Ports}}' | grep -E "[:.]${port}->" | grep -q "ai-soc-platform" 2>/dev/null
+  docker ps --format '{{.Ports}} {{.Labels}}' \
+    | grep -E "0\.0\.0\.0:${port}->|\[::\]:${port}->|desktop\.docker\.io/ports/${port}/" \
+    | grep -F -e "com.docker.compose.project.working_dir=$ROOT_DIR" -e "com.docker.compose.project.working_dir=$BACKEND_DIR" \
+    >/dev/null
 }
 
 check_port_free() {

@@ -32,6 +32,7 @@ async def create_collector_endpoint(
     return await create_collector(collector, user)
 
 
+@management_router.get("/")
 @management_router.get("")
 async def list_collectors_endpoint(
     pagination: Pagination = Depends(pagination_params),

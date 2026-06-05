@@ -48,7 +48,7 @@ export const navGroups: NavGroup[] = [
     label: "Detection",
     items: [
       { to: "/rules", label: "Detection Rules", icon: FileCode2 },
-      { to: "/packs", label: "Rule Packs", icon: Package },
+      { to: "/rule-packs", label: "Rule Packs", icon: Package },
       { to: "/collectors", label: "Collectors", icon: Radio },
       { to: "/ingest", label: "Log Ingestion", icon: Database },
     ],

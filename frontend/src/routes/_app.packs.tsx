@@ -13,7 +13,7 @@ export const Route = createFileRoute("/_app/packs")({
   component: PacksPage,
 });
 
-function PacksPage() {
+export function PacksPage() {
   const queryClient = useQueryClient();
   const [importText, setImportText] = useState("");
   const [draft, setDraft] = useState({
