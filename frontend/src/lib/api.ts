@@ -139,6 +139,87 @@ export type IncidentAttackGraphResponse = {
   edges: IncidentAttackGraphEdge[];
 };
 
+export type AttackChainStatus = "open" | "investigating" | "contained" | "resolved";
+
+export type AttackChainMitreTechnique = {
+  technique_id: string;
+  technique_name: string;
+  tactic: string;
+  reason: string;
+};
+
+export type AttackChainTimelineItem = {
+  alert_id?: string | null;
+  timestamp?: string | null;
+  title?: string | null;
+  event_type?: string | null;
+  severity?: string | null;
+  host?: string | null;
+  user?: string | null;
+  source_ip?: string | null;
+  destination_ip?: string | null;
+  process_name?: string | null;
+  stage?: string | null;
+  mitre_techniques?: AttackChainMitreTechnique[];
+  message?: string | null;
+};
+
+export type AttackChainRecord = BackendDocument & {
+  organization_id?: string;
+  title: string;
+  status: AttackChainStatus;
+  severity: "low" | "medium" | "high" | "critical";
+  risk_score: number;
+  confidence_score: number;
+  related_alert_ids: string[];
+  related_incident_ids: string[];
+  affected_hosts: string[];
+  affected_users: string[];
+  source_ips: string[];
+  destination_ips: string[];
+  mitre_techniques: AttackChainMitreTechnique[];
+  attack_stages: string[];
+  timeline?: AttackChainTimelineItem[];
+  ai_summary?: string;
+  recommended_actions?: string[];
+  created_at?: string;
+  updated_at?: string;
+};
+
+export type AttackChainGenerateResponse = {
+  items: AttackChainRecord[];
+  generated: number;
+  lookback_hours: number;
+};
+
+export type AttackChainStoryResponse = {
+  chain_id: string;
+  timeline: AttackChainTimelineItem[];
+  ai_summary: string;
+  recommended_actions: string[];
+};
+
+export type AttackChainGraphNode = {
+  id: string;
+  type: string;
+  label: string;
+  severity?: string | null;
+  metadata: Record<string, unknown>;
+};
+
+export type AttackChainGraphEdge = {
+  id: string;
+  source: string;
+  target: string;
+  label: string;
+};
+
+export type AttackChainGraphResponse = {
+  chain_id: string;
+  nodes: AttackChainGraphNode[];
+  edges: AttackChainGraphEdge[];
+};
+
 export type SoarActionRecord = BackendDocument & {
   incident_id?: string;
   alert_id?: string;
@@ -783,6 +864,22 @@ export const backend = {
   incident: (id: string) => api<IncidentRecord>(`/incidents/${id}`),
   incidentAttackGraph: (id: string) =>
     api<IncidentAttackGraphResponse>(`/incidents/${id}/attack-graph`),
+  generateAttackChains: (lookback_hours = 24) =>
+    api<AttackChainGenerateResponse>(withQuery("/attack-chains/generate", { lookback_hours }), {
+      method: "POST",
+    }),
+  attackChains: (params?: { limit?: number; offset?: number }) =>
+    api<Paginated<AttackChainRecord>>(withQuery("/attack-chains/", params)),
+  attackChain: (id: string) => api<AttackChainRecord>(`/attack-chains/${id}`),
+  updateAttackChainStatus: (id: string, status: AttackChainStatus) =>
+    api<AttackChainRecord>(`/attack-chains/${id}/status`, {
+      method: "PATCH",
+      body: JSON.stringify({ status }),
+    }),
+  attackChainStory: (id: string) =>
+    api<AttackChainStoryResponse>(`/attack-chains/${id}/story`),
+  attackChainGraph: (id: string) =>
+    api<AttackChainGraphResponse>(`/attack-chains/${id}/graph`),
   createIncident: (payload: {
     title: string;
     description: string;

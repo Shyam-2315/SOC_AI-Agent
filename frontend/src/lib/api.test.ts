@@ -147,4 +147,66 @@ describe("api client", () => {
       expect.objectContaining({ method: "POST" }),
     );
   });
+
+  it("calls attack chain endpoints through the shared API client", async () => {
+    setToken("attack-token");
+    const fetchMock = vi.spyOn(globalThis, "fetch").mockImplementation(() =>
+      Promise.resolve(
+        new Response(JSON.stringify({ ok: true, items: [] }), {
+          status: 200,
+          headers: { "content-type": "application/json" },
+        }),
+      ),
+    );
+
+    await backend.generateAttackChains(72);
+    await backend.attackChains({ limit: 25, offset: 50 });
+    await backend.attackChain("chain-1");
+    await backend.updateAttackChainStatus("chain-1", "contained");
+    await backend.attackChainStory("chain-1");
+    await backend.attackChainGraph("chain-1");
+
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      1,
+      "http://127.0.0.1/attack-chains/generate?lookback_hours=72",
+      expect.objectContaining({
+        method: "POST",
+        headers: expect.objectContaining({
+          Authorization: "Bearer attack-token",
+        }),
+      }),
+    );
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      2,
+      "http://127.0.0.1/attack-chains/?limit=25&offset=50",
+      expect.objectContaining({
+        headers: expect.objectContaining({
+          Authorization: "Bearer attack-token",
+        }),
+      }),
+    );
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      3,
+      "http://127.0.0.1/attack-chains/chain-1",
+      expect.any(Object),
+    );
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      4,
+      "http://127.0.0.1/attack-chains/chain-1/status",
+      expect.objectContaining({
+        method: "PATCH",
+        body: JSON.stringify({ status: "contained" }),
+      }),
+    );
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      5,
+      "http://127.0.0.1/attack-chains/chain-1/story",
+      expect.any(Object),
+    );
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      6,
+      "http://127.0.0.1/attack-chains/chain-1/graph",
+      expect.any(Object),
+    );
+  });
 });

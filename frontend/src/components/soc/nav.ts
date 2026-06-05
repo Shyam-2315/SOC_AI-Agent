@@ -15,6 +15,7 @@ import {
   Users,
   Zap,
   AlertOctagon,
+  GitBranch,
 } from "lucide-react";
 
 export type NavItem = {
@@ -35,6 +36,7 @@ export const navGroups: NavGroup[] = [
       { to: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
       { to: "/alerts", label: "Alerts", icon: Bell },
       { to: "/incidents", label: "Incidents", icon: AlertOctagon },
+      { to: "/attack-chains", label: "Attack Chains", icon: GitBranch },
       { to: "/soar", label: "SOAR Actions", icon: Zap },
       { to: "/hunting", label: "Threat Hunting", icon: Crosshair },
       { to: "/threat-intel", label: "Threat Intel", icon: ShieldAlert },

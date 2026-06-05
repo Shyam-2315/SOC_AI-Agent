@@ -26,6 +26,7 @@ import { Route as AppHuntingRouteImport } from './routes/_app.hunting'
 import { Route as AppDashboardRouteImport } from './routes/_app.dashboard'
 import { Route as AppCopilotRouteImport } from './routes/_app.copilot'
 import { Route as AppCollectorsRouteImport } from './routes/_app.collectors'
+import { Route as AppAttackChainsRouteImport } from './routes/_app.attack-chains'
 import { Route as AppAlertsRouteImport } from './routes/_app.alerts'
 import { Route as AppIncidentsIncidentIdRouteImport } from './routes/_app.incidents.$incidentId'
 import { Route as AppThreatHuntingTimelineIncidentIdRouteImport } from './routes/_app.threat-hunting.timeline.$incidentId'
@@ -114,6 +115,11 @@ const AppCollectorsRoute = AppCollectorsRouteImport.update({
   path: '/collectors',
   getParentRoute: () => AppRoute,
 } as any)
+const AppAttackChainsRoute = AppAttackChainsRouteImport.update({
+  id: '/attack-chains',
+  path: '/attack-chains',
+  getParentRoute: () => AppRoute,
+} as any)
 const AppAlertsRoute = AppAlertsRouteImport.update({
   id: '/alerts',
   path: '/alerts',
@@ -135,6 +141,7 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/login': typeof LoginRoute
   '/alerts': typeof AppAlertsRoute
+  '/attack-chains': typeof AppAttackChainsRoute
   '/collectors': typeof AppCollectorsRoute
   '/copilot': typeof AppCopilotRoute
   '/dashboard': typeof AppDashboardRoute
@@ -156,6 +163,7 @@ export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/login': typeof LoginRoute
   '/alerts': typeof AppAlertsRoute
+  '/attack-chains': typeof AppAttackChainsRoute
   '/collectors': typeof AppCollectorsRoute
   '/copilot': typeof AppCopilotRoute
   '/dashboard': typeof AppDashboardRoute
@@ -179,6 +187,7 @@ export interface FileRoutesById {
   '/_app': typeof AppRouteWithChildren
   '/login': typeof LoginRoute
   '/_app/alerts': typeof AppAlertsRoute
+  '/_app/attack-chains': typeof AppAttackChainsRoute
   '/_app/collectors': typeof AppCollectorsRoute
   '/_app/copilot': typeof AppCopilotRoute
   '/_app/dashboard': typeof AppDashboardRoute
@@ -202,6 +211,7 @@ export interface FileRouteTypes {
     | '/'
     | '/login'
     | '/alerts'
+    | '/attack-chains'
     | '/collectors'
     | '/copilot'
     | '/dashboard'
@@ -223,6 +233,7 @@ export interface FileRouteTypes {
     | '/'
     | '/login'
     | '/alerts'
+    | '/attack-chains'
     | '/collectors'
     | '/copilot'
     | '/dashboard'
@@ -245,6 +256,7 @@ export interface FileRouteTypes {
     | '/_app'
     | '/login'
     | '/_app/alerts'
+    | '/_app/attack-chains'
     | '/_app/collectors'
     | '/_app/copilot'
     | '/_app/dashboard'
@@ -390,6 +402,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppCollectorsRouteImport
       parentRoute: typeof AppRoute
     }
+    '/_app/attack-chains': {
+      id: '/_app/attack-chains'
+      path: '/attack-chains'
+      fullPath: '/attack-chains'
+      preLoaderRoute: typeof AppAttackChainsRouteImport
+      parentRoute: typeof AppRoute
+    }
     '/_app/alerts': {
       id: '/_app/alerts'
       path: '/alerts'
@@ -428,6 +447,7 @@ const AppIncidentsRouteWithChildren = AppIncidentsRoute._addFileChildren(
 
 interface AppRouteChildren {
   AppAlertsRoute: typeof AppAlertsRoute
+  AppAttackChainsRoute: typeof AppAttackChainsRoute
   AppCollectorsRoute: typeof AppCollectorsRoute
   AppCopilotRoute: typeof AppCopilotRoute
   AppDashboardRoute: typeof AppDashboardRoute
@@ -447,6 +467,7 @@ interface AppRouteChildren {
 
 const AppRouteChildren: AppRouteChildren = {
   AppAlertsRoute: AppAlertsRoute,
+  AppAttackChainsRoute: AppAttackChainsRoute,
   AppCollectorsRoute: AppCollectorsRoute,
   AppCopilotRoute: AppCopilotRoute,
   AppDashboardRoute: AppDashboardRoute,
