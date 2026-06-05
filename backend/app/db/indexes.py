@@ -3,6 +3,7 @@ from pymongo import ASCENDING, DESCENDING
 from app.db.client import (
     alerts_collection,
     alert_processing_jobs_collection,
+    attack_chains_collection,
     audit_events_collection,
     collectors_collection,
     correlated_incidents_collection,
@@ -181,6 +182,18 @@ async def create_indexes() -> None:
     )
     await correlated_incidents_collection.create_index(
         [("organization_id", ASCENDING), ("incident_id", ASCENDING)]
+    )
+    await attack_chains_collection.create_index(
+        [("organization_id", ASCENDING), ("updated_at", DESCENDING)]
+    )
+    await attack_chains_collection.create_index(
+        [("organization_id", ASCENDING), ("status", ASCENDING), ("updated_at", DESCENDING)]
+    )
+    await attack_chains_collection.create_index(
+        [("organization_id", ASCENDING), ("related_alert_ids", ASCENDING)]
+    )
+    await attack_chains_collection.create_index(
+        [("organization_id", ASCENDING), ("severity", ASCENDING), ("risk_score", DESCENDING)]
     )
     await security_detections_collection.create_index(
         [("organization_id", ASCENDING), ("created_at", DESCENDING)]

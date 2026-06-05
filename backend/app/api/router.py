@@ -1,6 +1,7 @@
 from fastapi import APIRouter
 
 from app.api.routes.alerts import router as alerts_router
+from app.api.routes.attack_chains import router as attack_chains_router
 from app.api.routes.ai_copilot import router as ai_copilot_router
 from app.api.routes.auth import router as auth_router
 from app.api.routes.collectors import router as collectors_router
@@ -24,6 +25,7 @@ api_router.include_router(auth_router)
 api_router.include_router(organizations_router)
 api_router.include_router(logs_router)
 api_router.include_router(alerts_router)
+api_router.include_router(attack_chains_router)
 api_router.include_router(ai_copilot_router)
 api_router.include_router(collectors_router)
 api_router.include_router(rule_packs_router)

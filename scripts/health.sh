@@ -143,7 +143,7 @@ check_syslog_listener() {
 check_frontend_routes() {
   header "Frontend Validation"
   local route status
-  for route in / /incidents /alerts /dashboard; do
+  for route in / /incidents /alerts /dashboard /attack-chains; do
     status="$(curl -sS -o /dev/null -w "%{http_code}" --max-time 5 "${FRONTEND_URL}${route}" || true)"
     if [[ "$status" == "200" ]]; then
       ok "Route ${route} served"
@@ -215,6 +215,16 @@ check_api_validation() {
     warn_check "Alerts API redirected (code=307)"
   else
     fail "Alerts API failed (code=$status)"
+    return 1
+  fi
+
+  status="$(curl -sS -o /dev/null -w "%{http_code}" --max-time 5 "$BACKEND_URL/attack-chains/" || true)"
+  if [[ "$status" == "401" || "$status" == "403" || "$status" == "422" ]]; then
+    ok "Attack Chains API reachable (code=$status)"
+  elif [[ "$status" == "307" ]]; then
+    warn_check "Attack Chains API redirected (code=307)"
+  else
+    fail "Attack Chains API failed (code=$status)"
     return 1
   fi
 

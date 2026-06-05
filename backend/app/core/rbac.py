@@ -4,6 +4,8 @@ from app.core.security import UserRole
 ROLE_PERMISSIONS = {
     UserRole.admin.value: {
         "alerts:read",
+        "attack_chains:read",
+        "attack_chains:write",
         "logs:read",
         "incidents:read",
         "incidents:write",
@@ -24,6 +26,8 @@ ROLE_PERMISSIONS = {
     },
     UserRole.analyst.value: {
         "alerts:read",
+        "attack_chains:read",
+        "attack_chains:write",
         "logs:read",
         "incidents:read",
         "incidents:write",
@@ -39,6 +43,7 @@ ROLE_PERMISSIONS = {
     },
     UserRole.viewer.value: {
         "alerts:read",
+        "attack_chains:read",
         "logs:read",
         "incidents:read",
         "organizations:read",

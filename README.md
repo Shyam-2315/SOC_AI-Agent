@@ -50,6 +50,7 @@ The platform provides:
 - **MITRE ATT&CK Mapping** - Automatic tactic and technique mapping
 - **Threat Intelligence Correlation** - External threat intel integration
 - **AI Security Copilot Core** - Deterministic alert triage, incident summaries, false-positive scoring, recommended actions, and natural-language SOC query parsing without external AI APIs
+- **AI Attack Correlation & Threat Story Engine** - Tenant-scoped attack chains that correlate related alerts into timelines, MITRE ATT&CK techniques, risk scores, summaries, actions, and graph data
 
 ### 🎯 Alert & Incident Management
 - **Smart Alert Routing** - Intelligent grouping and correlation
@@ -70,6 +71,49 @@ The platform provides:
 - **Attack Timeline** - Visual attack progression
 - **Event Correlation** - Connect related security events
 - **Historical Analysis** - Forensic investigation capabilities
+
+## AI Attack Correlation & Threat Story Engine
+
+The Attack Chains feature builds a full threat story from recent alerts in the same organization. It groups alerts by shared host, user, source IP, destination IP, process/session context, and close event timing, then stores the result in the `attack_chains` MongoDB collection.
+
+### API Endpoints
+
+- `POST /attack-chains/generate?lookback_hours=24` - correlate recent alerts and create or update attack chains.
+- `GET /attack-chains/` - list tenant-scoped attack chains.
+- `GET /attack-chains/{chain_id}` - get the full attack chain.
+- `PATCH /attack-chains/{chain_id}/status` - update `open`, `investigating`, `contained`, or `resolved`.
+- `GET /attack-chains/{chain_id}/story` - return timeline, AI summary, and recommended actions.
+- `GET /attack-chains/{chain_id}/graph` - return node/edge data for frontend visualization.
+
+All endpoints use the authenticated user's `organization_id` and RBAC permissions, so cross-tenant access returns `404` or `403` depending on the failure mode.
+
+### Risk Score
+
+Risk is calculated on a 0-10 scale from alert count, severity weights, affected host/user spread, credential access, lateral movement, exfiltration, and compressed timing. Critical alerts, credential dumping, remote services/lateral movement, and exfiltration all increase the score.
+
+### MITRE Mapping Examples
+
+- PowerShell, `cmd.exe`, bash, shell, script, or `EncodedCommand` maps to `T1059 Command and Scripting Interpreter`.
+- Mimikatz, LSASS access, credential dump, or hash dump maps to `T1003 OS Credential Dumping`.
+- RDP, SSH, SMB, WinRM, remote login, or lateral movement maps to `T1021 Remote Services`.
+- Scheduled task, cron, or startup folder maps to `T1053 Scheduled Task/Job`.
+- Data upload, exfiltration, or large outbound transfer maps to `T1041 Exfiltration Over C2 Channel`.
+- Suspicious download, payload download, curl, or wget maps to `T1105 Ingress Tool Transfer`.
+
+### Demo Flow
+
+Run the backend, seed demo alerts, then open the frontend `Attack Chains` navigation item:
+
+```bash
+cd backend
+.venv/bin/python scripts/seed_attack_chain_demo.py
+```
+
+The demo creates a suspicious login, PowerShell execution, credential dumping, lateral movement, and data exfiltration sequence for `demo-org`, then generates a complete attack chain.
+
+### Frontend Usage
+
+The React console includes `Attack Chains` in the Operations navigation. The page can generate chains from a selected lookback window, show risk/severity badges, display affected hosts/users and MITRE badges, render the threat story and timeline, list recommended actions, and show a node-edge graph fallback when React Flow is not installed.
 
 ### 🔐 Security & Multi-Tenancy
 - **JWT Authentication** - Secure token-based auth with configurable expiry
